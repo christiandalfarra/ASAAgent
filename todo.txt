@@ -1,10 +1,11 @@
 capire perchè appena arriva a una parcel si blocca e non continua l'esecuzione
 creare tre classi
-    -agentbelief tutto cio che è utile all'agente 
+    -agentdata tutto cio che è utile all'agente 
+        parcels ogni volta che vedo una parcel o questa cambia di valore mentre è nel mio campo visivo
+        aggiorno il valore in tempo reale se la posso vedere ed aggiorno quelle che non vedo più usando la frequenza di decadimento
         agenti nemici
-        parcels
     -map salva i dati relativi alla mappa
-        onConfig dati utili
+        onConfig dati utili (movement speed, decay_interval)
         delivery spot salva le coordinate dei punti dove si può consegnare
         spawn spot ogni tile ha un punteggio in base a quante altre celle vicino a lei potrebbero generare parcels
     -intentions guardare quella del prof
