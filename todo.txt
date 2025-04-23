@@ -1,0 +1,19 @@
+capire perchè appena arriva a una parcel si blocca e non continua l'esecuzione
+creare tre classi
+    -agentbelief tutto cio che è utile all'agente 
+        agenti nemici
+        parcels
+    -map salva i dati relativi alla mappa
+        onConfig dati utili
+        delivery spot salva le coordinate dei punti dove si può consegnare
+        spawn spot ogni tile ha un punteggio in base a quante altre celle vicino a lei potrebbero generare parcels
+    -intentions guardare quella del prof
+aggiungere la intention revision
+    quindi decidere cosa mettere
+    ordine nella coda delle intention da soddisfare
+capire come fare il modello di memoria
+    per parcel
+    movimento altri agenti 
+capire se è utile il planning (non è necessario per la challenge ma serve per il progetto finale)
+    generate the problem from the belief set 
+    declare and undecalre for specify the predicates to be or not be in the state
