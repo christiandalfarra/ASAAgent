@@ -1,24 +1,33 @@
- ASAAgent
+## ASAAgent
 
-**ASAAgent** is a JavaScript-based agent framework designed for experimentation, learning, or automation tasks. It includes basic configuration and test scaffolding to help you get started quickly.
+**ASAAgent** is a JavaScript-based agent that can play autonomous the game of deliveroo, using the BDI architecture and PDDL as planning module
 
 ## 📁 Project Structure
 
-- `config.js` – Configuration settings for the agent.
-- `test.js` – Test file to validate the agent's behavior.
-- `package.json` – Lists dependencies and project metadata.
-- `package-lock.json` – Auto-generated lockfile for dependency consistency.
-- `todo.txt` – Notes, ideas, and task planning.
-- `.gitignore` – Specifies files/folders Git should ignore.
+```plaintext
+ASAAgent
+├── belief/
+│   ├── agentBelief.js           # maintain the belief of the agent updated
+│   ├── agentData.js             # class that models the agent data (parcels, enemies...)
+│   ├── map.js                   # class that models the map data
+│
+├── intention
+│   ├── intention.js             # Handles intention execution
+|
+├── main/
+│   ├── agent.js                 # agent esecution
+│   ├── astar.js                 # define the path finding algorithm
+|
+├── config.js                  # Configuration parameters
+```
 
 ## 🚀 Getting Started
-
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) installed on your system.
 
 ### Installation
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/christiandalfarra/ASAAgent.git
+2. Intall the dependencies
+   ```bash
+   npm install
