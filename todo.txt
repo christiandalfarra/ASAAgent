@@ -9,6 +9,7 @@ creare tre classi
         delivery spot salva le coordinate dei punti dove si può consegnare
         spawn spot ogni tile ha un punteggio in base a quante altre celle vicino a lei potrebbero generare parcels
     -intentions guardare quella del prof
+    
 aggiungere la intention revision
     quindi decidere cosa mettere
     ordine nella coda delle intention da soddisfare
