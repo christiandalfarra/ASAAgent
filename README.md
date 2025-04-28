@@ -14,9 +14,14 @@ ASAAgent
 ├── intention
 │   ├── intention.js             # Handles intention execution
 |
+├── planning
+|   ├── domain.pddl
+|   ├── plans.js
+|   ├── utils.js
+
+|
 ├── main/
 │   ├── agent.js                 # agent esecution
-│   ├── astar.js                 # define the path finding algorithm
 |
 ├── config.js                  # Configuration parameters
 ```
