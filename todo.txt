@@ -13,9 +13,7 @@ creare tre classi
 aggiungere la intention revision
     quindi decidere cosa mettere
     ordine nella coda delle intention da soddisfare
-capire come fare il modello di memoria
-    per parcel
-    movimento altri agenti 
+
 capire se è utile il planning (non è necessario per la challenge ma serve per il progetto finale)
     generate the problem from the belief set 
     declare and undecalre for specify the predicates to be or not be in the state

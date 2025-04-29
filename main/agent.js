@@ -1,3 +1,3 @@
 import { client } from "../config.js";
-
-console.log(Math.round(1.02))
+var ciao = await client.emitMove("up")
+console.log(ciao ? "true":"false");

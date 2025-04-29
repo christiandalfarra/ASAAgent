@@ -18,7 +18,6 @@ ASAAgent
 |   ├── domain.pddl
 |   ├── plans.js
 |   ├── utils.js
-
 |
 ├── main/
 │   ├── agent.js                 # agent esecution
