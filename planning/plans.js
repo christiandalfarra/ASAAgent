@@ -1,13 +1,11 @@
 import { agentData, mapData } from "../belief/agentBelief.js";
-import { readFile, findPath, timeout } from "./utils.js";
+import { readFile, findPathAStar, timeout, findMovesAStar } from "./utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../config.js";
 import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
 // Read the domain file for the PDDL planner
 let domain = await readFile("./planners/domain.pddl");
-// flag to use PDDL planner or not
-let usePDDL = false;
 
 /**
  * Plan class
@@ -54,7 +52,7 @@ class AStarGoTo extends Plan {
     return goal.type === "go_to" && goal.pos !== undefined;
   }
   async execute(goal) {
-    var path = findPath(mapData.map, agentData.pos, goal.pos);
+    var path = findMovesAStar(mapData.map, agentData.pos, goal.pos);
 
     while (agentData.pos.x !== goal.pos.x || agentData.pos.y !== goal.pos.y) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
@@ -64,50 +62,113 @@ class AStarGoTo extends Plan {
         this.log("No path found to goal", goal.pos);
         break;
       }
-
-      // moved_x and moved_y are useful to check if the agent is stucked in his movement
       // the emitMove function return false if the agent cannot make that move
       // or the new position of the agent if the move is successful
-      let moved_x = false;
-      let moved_y = false;
+      // successful set to true if the move is successful
+      let successful = true;
+      successful = await client.emitMove(next_step);
+      if (this.stopped) throw ["stopped"];
 
-      if (next_step.x > agentData.pos.x)
-        moved_x = await client.emitMove("right");
-      else if (next_step.x < agentData.pos.x)
-        moved_x = await client.emitMove("left");
+      // if the move is not successful then we need to find a new path
 
-      if (state_x) {
-        agentData.pos.x = moved_x.x;
-        agentData.pos.y = moved_x.y;
-      }
-
-      if (this.stopped) throw ["stopped"]; // if stopped then quit
-
-      if (next_step.y > agentData.pos.y) 
-        moved_y = await client.emitMove("up");
-      else if (next_step.y < agentData.pos.y)
-        moved_y = await client.emitMove("down");
-      if (moved_y) {
-        agentData.pos.x = moved_y.x;
-        agentData.pos.y = moved_y.y;
-      }
-      if (this.stopped) throw ["stopped"]; // if stopped then quit
-
-      if (!moved_x && !moved_y) {
-        this.log("stucked: ", countStacked);
-        await timeout(500);
-        if (countStacked <= 0) {
+      let stuckCounter = 0;
+      if (!successful) {
+        stuckCounter++;
+        //if it get stucked more than 2 times then we need to stop the plan
+        if (stuckCounter > 2) {
+          this.log("Agent is stucked, stopping plan");
           throw ["stopped"];
-        } else {
-          countStacked--;
+        }
+        // if the agent is stuck then we need to find a new path
+        // we need to find a new path from the current position to the goal
+        path = findMovesAStar(mapData.map, agentData.pos, goal.pos);
+        // if the path is empty then we need to stop the plan
+        if (path.length == 0) {
+          this.log("No path found to goal", goal.pos);
+          throw ["stopped"];
         }
       }
     }
+    return true;
+  }
+}
+/**
+ * PddlPickUp class that extends Plan, used to pick up a parcel
+ */
+class PickUp extends Plan {
+  static isApplicableTo(go_pick_up) {
+    return go_pick_up == "go_pick_up";
+  }
+
+  async execute(goal) {
+    // Check if the agent is on the parcel position and pick it up
+    if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      await client.emitPickup();
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      return true;
+    }
+
+    // Move the agent to the parcel position and pick it up
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    await this.subIntention(["go_to", goal.x, goal.y]);
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    await client.emitPickup();
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+
+    return true;
+  }
+}
+
+/**
+ * PddlPutDown class that extends Plan, used to put down a parcel
+ */
+class PddlPutDown extends Plan {
+  static isApplicableTo(go_put_down) {
+    return go_put_down == "go_put_down";
+  }
+
+  async execute(goal) {
+    // Check if the agent is on the delivery point and put down the parcel
+    if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      await client.emitPutdown();
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      return true;
+    }
+
+    // Move the agent to the delivery point and put down the parcel
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    await this.subIntention(["go_to", goal.x, goal.y]);
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    await client.emitPutdown();
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+
+    return true;
+  }
+}
+
+/**
+ * GoRandomDelivery class that extends Plan, used to move the agent to a random spawn point or delivery point
+ */
+class GoRandomDelivery extends Plan {
+  static isApplicableTo(go_random_delivery, x, y, id, utility) {
+    return go_random_delivery == "go_random_delivery";
+  }
+
+  async execute(go_random_delivery, x, y) {
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    await this.subIntention(["go_to", x, y]);
+    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    return true;
   }
 }
 
 const plans = [];
 
 plans.push(GoToBFS);
+plans.push(PickUp);
+plans.push(PddlPutDown);
+plans.push(GoRandomDelivery);
 
 export { plans };

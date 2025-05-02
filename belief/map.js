@@ -12,7 +12,7 @@ class Map {
   constructor() {
     this.map = [];
     this.utilityMap = []; //map with the utility of each tile
-    this.deliveryCoordinates = [];
+    this.deliverCoordinates = [];
     this.spawningCoordinates = [];
     this.width = 0;
     this.height = 0;
@@ -36,7 +36,7 @@ class Map {
    * @param {Array} tiles - The tiles of the map
    */
   setDeliverCoordinates(tiles) {
-    this.deliveryCoordinates = tiles
+    this.deliverCoordinates = tiles
       .filter((t) => t.type == 2)
       .map((t) => ({ x: t.x, y: t.y }));
   }

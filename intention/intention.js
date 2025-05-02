@@ -68,7 +68,7 @@ class Intention {
                 // plan is instantiated
 
                 this.#current_plan = new planClass(this.#parent);
-                // this.log('achieving intention', ...this.predicate, 'with plan', planClass.name);
+                this.log('achieving intention', ...this.predicate, 'with plan', planClass.name);
                 // and plan is executed and result returned
                 try {
                     const plan_res = await this.#current_plan.execute(...this.predicate);
@@ -85,7 +85,7 @@ class Intention {
         if (this.stopped) throw ['stopped intention', ...this.predicate];
 
         // no plans have been found to satisfy the intention
-        // this.log( 'no plan satisfied the intention ', ...this.predicate );
+        this.log( 'no plan satisfied the intention ', ...this.predicate );
         throw ['no plan satisfied the intention ', ...this.predicate]
     }
 

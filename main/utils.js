@@ -1,5 +1,5 @@
 import fs from "fs";
-import { AgentData, mapData } from "../belief/agentBelief.js";
+import { agentData, mapData } from "../belief/agentBelief.js";
 
 /**
  * function to read the pddl domain file
@@ -21,7 +21,7 @@ export function readFile(path) {
  * @param {Array} map - The map of the game
  * @param {{x:number , y:number}} start - The starting position of the agent
  * @param {{x:number, y:number}} goal - The goal position of the agent
- * @returns {Array} - The path from start to goal
+ * @returns {Array{x:number, y:number}} - The path from start to goal
  */
 export function findPathAStar(map, start, goal) {
   const cols = map.length;
@@ -203,6 +203,7 @@ export function findNearestFromPos(setOfCoordinates, pos) {
   let minDistance = Infinity;
 
   for (const coordinate of setOfCoordinates) {
+    if (coordinate.x === pos.x && coordinate.y === pos.y) continue; // skip the same coordinate
     const distance = distanceAStar(pos, coordinate);
     if (distance == null) continue; // skip if no path found
     if (distance < minDistance) {
@@ -212,10 +213,57 @@ export function findNearestFromPos(setOfCoordinates, pos) {
   }
   return nearest;
 }
+
+export function countCloseParcels(pos, r){
+  let count = 0;
+  for(let i = pos.x-r+1; i < pos.x+r-1 ; i++){
+    for(let j = pos.y -r+1; j < pos.y+r-1 ; j++){
+      if(i !== pos.x && j !== pos.y){
+        for(let parcel of agentData.parcels){
+          if(parcel.x == i && parcel.y == j && parcel.carriedBy == null){
+            count++;
+          }
+        }
+      }
+    }
+  }
+  for(let parcel of agentData.parcels){
+    if(parcel.x == pos.x+2 && parcel.y == pos.y && parcel.carriedBy == null){
+    }
+
+  }
+
+  return count;
+}
 export function timeout(mseconds) {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve();
     }, mseconds);
   });
+}
+/**
+ *
+ * @param {{ id:string, x:number, y:number, carriedBy:string, reward:number }} parcel
+ * @returns {number} utility of the parcel
+ */
+export function pickUpUtility(parcel) {
+  let score = parcel.reward;
+  let parcelsInMind = agentData.parcelsToPick;
+  let parcels = agentData.parcels;
+
+  //valuta quanto distante è da me 
+  let distance = distanceAStar(agentData.pos, parcel);
+  //valuta quanto è distante dal nemico più vicino alla parcel
+  let distanceEnemyParcel = distanceAStar(parcel, findNearestFromPos(agentData.enemies, parcel));
+  //valuta quanto distante è dal delivery point
+  let distanceDeliveryParcel = distanceAStar(parcel, findNearestFromPos(mapData.deliverCoordinates, parcel));
+  //valuta se ha parcel vicino a meno di 2 tile che non sia quella che sto valutando
+  
+
+  // in base alla distanza tra parcel e delivery, se la distanza è tale che la parcel perde tutto il valore toglie punti
+  // più è lontana più toglie punti
+
+  //se la parcel più vicina al nemico di almeno due tile rispetto a me perdo punti
+  return 2;
 }
