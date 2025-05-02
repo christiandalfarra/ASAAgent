@@ -213,12 +213,19 @@ export function findNearestFromPos(setOfCoordinates, pos) {
   }
   return nearest;
 }
+export function validPosition(pos){
+  return pos.x>0 && pos.x < mapData.width && pos.y>0 && pos.y <mapData.height;
+}
 
 export function countCloseParcels(pos, r){
+
   let count = 0;
+  //pos posizione attuale ex: x=2,y=3
   for(let i = pos.x-r+1; i < pos.x+r-1 ; i++){
     for(let j = pos.y -r+1; j < pos.y+r-1 ; j++){
-      if(i !== pos.x && j !== pos.y){
+      //if the position is valid (inside the map), and is different form the position where i am look
+      // if in that position there is a parcel
+      if(validPosition({x:i , y:j}) && i !== pos.x && j !== pos.y){
         for(let parcel of agentData.parcels){
           if(parcel.x == i && parcel.y == j && parcel.carriedBy == null){
             count++;
@@ -227,14 +234,18 @@ export function countCloseParcels(pos, r){
       }
     }
   }
+  //check the positions (posx + r,posy), (posx - r,posy), (posx,posy + r), (posx,posy - r)
   for(let parcel of agentData.parcels){
-    if(parcel.x == pos.x+2 && parcel.y == pos.y && parcel.carriedBy == null){
-    }
+    count += pos.x + r == parcel.x && pos.y == parcel.y? 1 : 0;
+    count += pos.x - r == parcel.x && pos.y == parcel.y? 1 : 0;
 
+    count += pos.x == parcel.x && pos.y + r == parcel.y? 1 : 0;
+    count += pos.x == parcel.x && pos.y - r == parcel.y? 1 : 0;
   }
 
   return count;
 }
+
 export function timeout(mseconds) {
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -249,9 +260,6 @@ export function timeout(mseconds) {
  */
 export function pickUpUtility(parcel) {
   let score = parcel.reward;
-  let parcelsInMind = agentData.parcelsToPick;
-  let parcels = agentData.parcels;
-
   //valuta quanto distante è da me 
   let distance = distanceAStar(agentData.pos, parcel);
   //valuta quanto è distante dal nemico più vicino alla parcel
@@ -259,11 +267,14 @@ export function pickUpUtility(parcel) {
   //valuta quanto distante è dal delivery point
   let distanceDeliveryParcel = distanceAStar(parcel, findNearestFromPos(mapData.deliverCoordinates, parcel));
   //valuta se ha parcel vicino a meno di 2 tile che non sia quella che sto valutando
-  
+  let parcelsNear = countCloseParcels({x : parcel.x,y : parcel.y} , 2);
 
   // in base alla distanza tra parcel e delivery, se la distanza è tale che la parcel perde tutto il valore toglie punti
   // più è lontana più toglie punti
 
   //se la parcel più vicina al nemico di almeno due tile rispetto a me perdo punti
-  return 2;
+
+  //devo settare a,b,c,d,e parametri per calcolo della utility
+  let utility = a*score + b*distance + c*distanceEnemyParcel + d*distanceDeliveryParcel + e*parcelsNear;
+  return utility;
 }
