@@ -1,19 +1,7 @@
 import { AgentData } from "../belief/agentData.js";
 import { Map } from "../belief/map.js";
 import { client } from "../config.js";
-
-function mapToMatrix(width, height, tiles) {
-  // map updated 0 = wall, 1 = spawnable, 2 = delivery, 3 = walkable not spawnable
-  let map = [];
-  let grid = [...tiles];
-  for (let i = 0; i < width; i++) {
-    map[i] = [];
-    for (let j = 0; j < height; j++) {
-      map[i][j] = grid[i * width + j].type;
-    }
-  }
-  return map;
-}
+import { mapToMatrix } from "../main/utils.js";
 
 const agentData = new AgentData();
 const mapData = new Map();
@@ -53,6 +41,7 @@ client.onConfig((config) => {
     parcel_decading_interval =
       config.PARCEL_DECADING_INTERVAL.slice(0, -1) * 1000;
   }
+  mapData.movement_duration = config.MOVEMENT_DURATION;
   mapData.decade_frequency =
     config.MOVEMENT_DURATION / parcel_decading_interval;
 });
@@ -90,7 +79,8 @@ client.onAgentsSensing((agents_sensed) => {
   // reset to the original map
   mapData.utilityMap = mapData.map;
   let timestamp = Date.now() - startTime;
-  for (let a in agents_sensed) {
+  for (let index in agents_sensed) {
+    let a = agents_sensed[index];
     a.timestamp = timestamp;
     // if i have not perveived the agent before, add it to my belief
     if (!agentData.enemies.some((agent) => a.id === agent.id)) {
@@ -98,15 +88,15 @@ client.onAgentsSensing((agents_sensed) => {
       agentData.enemies.push(a);
     } else {
       // else, update the agent in my belief
-      let previousIndex = MyData.adversaryAgents.findIndex(
+      let previousIndex = agentData.enemies.findIndex(
         (agent) => a.id === agent.id
       );
-      let previous = MyData.adversaryAgents[previousIndex];
+      let previous = agentData.enemies[previousIndex];
       /* try to predict is possible direction and set the tile in the map to 0
        like a wall, so the agent will not go there, the control is done by look at the timestamp and see if the agent moved 
        in a range of time for three movements
       */
-      if (timestamp - previous.timestamp < movement_duration * 3) {
+      if (timestamp - previous.timestamp < mapData.movement_duration * 3) {
         if (previous.x < a.x) {
           a.direction = "right";
           mapData.updateTileValue(a.x + 1, a.y, 0);
@@ -123,9 +113,9 @@ client.onAgentsSensing((agents_sensed) => {
           a.direction = "none";
         }
       }
-      mapData.adversaryAgents.splice(previousIndex, 1, a);
+      agentData.enemies.splice(previousIndex, 1, a);
     }
-    for (let a of MyData.adversaryAgents) {
+    for (let a of agentData.enemies) {
       mapData.updateTileValue(a.x, a.y, 0);
     }
   }

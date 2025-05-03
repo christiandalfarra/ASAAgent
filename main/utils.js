@@ -1,6 +1,18 @@
 import fs from "fs";
 import { agentData, mapData } from "../belief/agentBelief.js";
 
+export function mapToMatrix(width, height, tiles) {
+  // map updated 0 = wall, 1 = spawnable, 2 = delivery, 3 = walkable not spawnable
+  let map = [];
+  let grid = [...tiles];
+  for (let i = 0; i < width; i++) {
+    map[i] = [];
+    for (let j = 0; j < height; j++) {
+      map[i][j] = grid[i * width + j].type;
+    }
+  }
+  return map;
+}
 /**
  * function to read the pddl domain file
  *
@@ -15,6 +27,18 @@ export function readFile(path) {
     });
   });
 }
+function isWalkable(x, y) {
+  return (
+    x >= 0 &&
+    x < mapData.width &&
+    y >= 0 &&
+    y < mapData.height &&
+    mapData.map[x][y] !== 0
+  );
+}
+function manhattanDistance(a, b) {
+  return Math.round(Math.abs(a.x - b.x) + Math.abs(a.y - b.y));
+}
 /**
  * function to find the path from start to goal using A* algorithm
  *
@@ -26,14 +50,6 @@ export function readFile(path) {
 export function findPathAStar(map, start, goal) {
   const cols = map.length;
   const rows = map[0].length;
-
-  const isWalkable = (x, y) => {
-    return x >= 0 && x < cols && y >= 0 && y < rows && map[x][y] !== 0;
-  };
-
-  const heuristic = (a, b) =>
-    Math.abs(Math.round(a.x) - Math.round(b.x)) +
-    Math.abs(Math.round(a.y) - Math.round(b.y));
 
   const directions = [
     { x: 0, y: -1 },
@@ -49,7 +65,7 @@ export function findPathAStar(map, start, goal) {
   const fScore = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
 
   gScore[start.y][start.x] = 0;
-  fScore[start.y][start.x] = heuristic(start, goal);
+  fScore[start.y][start.x] = manhattanDistance(start, goal);
 
   const nodeKey = (x, y) => `${x},${y}`;
 
@@ -80,7 +96,7 @@ export function findPathAStar(map, start, goal) {
         const neighborKey = nodeKey(nx, ny);
         cameFrom.set(neighborKey, nodeKey(current.x, current.y));
         gScore[ny][nx] = tentativeG;
-        fScore[ny][nx] = tentativeG + heuristic({ x: nx, y: ny }, goal);
+        fScore[ny][nx] = tentativeG + manhattanDistance({ x: nx, y: ny }, goal);
 
         if (!openSet.some((n) => n.x === nx && n.y === ny)) {
           openSet.push({ x: nx, y: ny, f: fScore[ny][nx] });
@@ -187,8 +203,8 @@ export function findMovesAStar(map, start, goal) {
  * @returns {number} - The distance from start to goal
  */
 export function distanceAStar(start, end) {
-  const path = findPathAStar(start, end);
-  return path != null ? path.length : path;
+  const path = findPathAStar(mapData.map, start, end);
+  return path != null ? path.length - 1 : path;
 }
 
 /**
@@ -199,35 +215,36 @@ export function distanceAStar(start, end) {
  * @returns {{x:number , y:number}} - The nearest coordinate from the set of coordinates
  */
 export function findNearestFromPos(setOfCoordinates, pos) {
-  let nearest = null;
-  let minDistance = Infinity;
-
-  for (const coordinate of setOfCoordinates) {
+  let nearest = { x: -1, y: -1 };
+  let minDistance = 2000;
+  for (let coordinate of setOfCoordinates) {
     if (coordinate.x === pos.x && coordinate.y === pos.y) continue; // skip the same coordinate
-    const distance = distanceAStar(pos, coordinate);
+    let distance = distanceAStar(pos, coordinate);
     if (distance == null) continue; // skip if no path found
     if (distance < minDistance) {
+      console.log("found nearest");
       minDistance = distance;
-      nearest = coordinate;
+      nearest = { x: coordinate.x, y: coordinate.y };
     }
   }
   return nearest;
 }
-export function validPosition(pos){
-  return pos.x>0 && pos.x < mapData.width && pos.y>0 && pos.y <mapData.height;
+export function validPosition(pos) {
+  return (
+    pos.x > 0 && pos.x < mapData.width && pos.y > 0 && pos.y < mapData.height
+  );
 }
 
-export function countCloseParcels(pos, r){
-
+export function countCloseParcels(pos, r) {
   let count = 0;
   //pos posizione attuale ex: x=2,y=3
-  for(let i = pos.x-r+1; i < pos.x+r-1 ; i++){
-    for(let j = pos.y -r+1; j < pos.y+r-1 ; j++){
+  for (let i = pos.x - r + 1; i < pos.x + r - 1; i++) {
+    for (let j = pos.y - r + 1; j < pos.y + r - 1; j++) {
       //if the position is valid (inside the map), and is different form the position where i am look
       // if in that position there is a parcel
-      if(validPosition({x:i , y:j}) && i !== pos.x && j !== pos.y){
-        for(let parcel of agentData.parcels){
-          if(parcel.x == i && parcel.y == j && parcel.carriedBy == null){
+      if (validPosition({ x: i, y: j }) && i !== pos.x && j !== pos.y) {
+        for (let parcel of agentData.parcels) {
+          if (parcel.x == i && parcel.y == j && parcel.carriedBy == null) {
             count++;
           }
         }
@@ -235,12 +252,12 @@ export function countCloseParcels(pos, r){
     }
   }
   //check the positions (posx + r,posy), (posx - r,posy), (posx,posy + r), (posx,posy - r)
-  for(let parcel of agentData.parcels){
-    count += pos.x + r == parcel.x && pos.y == parcel.y? 1 : 0;
-    count += pos.x - r == parcel.x && pos.y == parcel.y? 1 : 0;
+  for (let parcel of agentData.parcels) {
+    count += pos.x + r == parcel.x && pos.y == parcel.y ? 1 : 0;
+    count += pos.x - r == parcel.x && pos.y == parcel.y ? 1 : 0;
 
-    count += pos.x == parcel.x && pos.y + r == parcel.y? 1 : 0;
-    count += pos.x == parcel.x && pos.y - r == parcel.y? 1 : 0;
+    count += pos.x == parcel.x && pos.y + r == parcel.y ? 1 : 0;
+    count += pos.x == parcel.x && pos.y - r == parcel.y ? 1 : 0;
   }
 
   return count;
@@ -260,21 +277,54 @@ export function timeout(mseconds) {
  */
 export function pickUpUtility(parcel) {
   let score = parcel.reward;
-  //valuta quanto distante è da me 
+  //valuta quanto distante è da me
   let distance = distanceAStar(agentData.pos, parcel);
   //valuta quanto è distante dal nemico più vicino alla parcel
-  let distanceEnemyParcel = distanceAStar(parcel, findNearestFromPos(agentData.enemies, parcel));
+  // prima controlla la ci sono nemici nel belief
+  console.log("enemies", agentData.enemies);
+  console.log("parcel", parcel);
+  console.log(findNearestFromPos(agentData.enemies, parcel));
+  let distanceEnemyParcel =
+    agentData.enemies.length === 0
+      ? mapData.width + mapData.height
+      : distanceAStar(parcel, findNearestFromPos(agentData.enemies, parcel));
   //valuta quanto distante è dal delivery point
-  let distanceDeliveryParcel = distanceAStar(parcel, findNearestFromPos(mapData.deliverCoordinates, parcel));
+  let distanceDeliveryParcel = distanceAStar(
+    parcel,
+    findNearestFromPos(mapData.deliverCoordinates, parcel)
+  );
   //valuta se ha parcel vicino a meno di 2 tile che non sia quella che sto valutando
-  let parcelsNear = countCloseParcels({x : parcel.x,y : parcel.y} , 2);
-
-  // in base alla distanza tra parcel e delivery, se la distanza è tale che la parcel perde tutto il valore toglie punti
-  // più è lontana più toglie punti
-
-  //se la parcel più vicina al nemico di almeno due tile rispetto a me perdo punti
+  let parcelsNear = countCloseParcels({ x: parcel.x, y: parcel.y }, 2);
+  //valuta se nel tempo per raggiungere la parcel col migliore percoroso la parcel perde valore
+  // freq dice ogni quanti movimenti la parcel perde 1 punto
+  // freq = mov duration / interval decading
+  let decade_frequency = mapData.decade_frequency;
+  // valore quando la raggiungo dovrebbere essere
+  // score - (distance * decade_frequency)
+  let scoreAtPickUp = Math.round(score - distance * decade_frequency);
 
   //devo settare a,b,c,d,e parametri per calcolo della utility
-  let utility = a*score + b*distance + c*distanceEnemyParcel + d*distanceDeliveryParcel + e*parcelsNear;
+  let a,
+    b,
+    c,
+    d,
+    e = 1;
+  console.log(
+    scoreAtPickUp,
+    distance,
+    distanceEnemyParcel,
+    distanceDeliveryParcel,
+    parcelsNear
+  );
+  let utility =
+    scoreAtPickUp +
+    distance +
+    distanceEnemyParcel +
+    distanceDeliveryParcel +
+    parcelsNear;
+  return utility;
+}
+export function putDownUtility(parcel) {
+  let utility = 0;
   return utility;
 }

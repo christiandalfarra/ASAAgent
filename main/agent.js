@@ -1,3 +1,9 @@
 import { client } from "../config.js";
-var ciao = await client.emitMove("up")
-console.log(ciao ? "true":"false");
+import { pickUpUtility, mapToMatrix } from "./utils.js";
+import { mapData, agentData} from "../belief/agentBelief.js";
+
+client.onParcelsSensing((parcels) => {
+  for (let parcel of parcels) {
+    console.log("utility", pickUpUtility(parcel));
+  }
+});

@@ -8,7 +8,7 @@ class Map {
   parcel_reward_avg = 0;
   parcel_observation_distance = 0; //how far the agent can see
   decade_frequency = 0.0; //we use it to update the belief of the parcels
-
+  movement_duration = 0; //how long it takes to move from one tile to another
   constructor() {
     this.map = [];
     this.utilityMap = []; //map with the utility of each tile
@@ -19,6 +19,7 @@ class Map {
     this.parcel_reward_avg = 0;
     this.parcel_observation_distance = 0;
     this.decade_frequency = 0;
+    this.movement_duration = 0;
   }
   /**
    * Fill the spawning coordinates
