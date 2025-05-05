@@ -7,7 +7,7 @@ class AgentData {
 
   // Parcel-related memory
   parcels = []; // all known parcels
-  parcelsToPick = []; // parcels targeted for pickup
+  parcelsCarried = []; // parcels targeted for pickup
 
   // Decision-making
   options = []; // potential plans/options
@@ -16,27 +16,30 @@ class AgentData {
   // Perceived enemies
   enemies = [];
 
+  currentIntention = null; // current intention being pursued
+
   constructor() {
     // Initialize attributes
     this.name = "";
     this.id = "";
     this.pos = { x: 0, y: 0 };
     this.parcels = [];
-    this.parcelsToPick = [];
+    this.parcelsCarried = [];
     this.options = [];
     this.best_option = [];
     this.enemies = [];
+    this.currentIntention = null;
   }
 
   // Calculate cumulative score of all targeted parcels
   getParcelToPickScore() {
     let score = 0;
-    for (let parceltoPick of this.parcelsToPick) {
+    for (let parceltoPick of this.parcelsCarried) {
       for (let parcel of this.parcels) {
         if (parceltoPick.id === parcel.id) {
           // If parcel is invalid, remove from target list
           if (parcel.reward < 1) {
-            this.parcelsToPick = this.parcelsToPick.filter(
+            this.parcelsCarried = this.parcelsCarried.filter(
               (p) => p.id !== parceltoPick.id
             );
           } else {
@@ -71,6 +74,16 @@ class AgentData {
     for (let elem of this.parcels) {
       console.log(elem);
     }
+  }
+  getPickedScore(){
+    let score = 0;
+    if (this.parcelsCarried.length == 0) return 0;
+    for (let parcel of this.parcelsCarried) {
+      if (parcel.reward > 0) {
+        score += parcel.reward;
+      }
+    }
+    return score;
   }
 
   /**

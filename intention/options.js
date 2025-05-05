@@ -1,7 +1,8 @@
 // Import agent belief state and map state
-import { agentData, mapData } from "../belief/agentBelief";
+import { agentData, mapData } from "../belief/agentBelief.js";
 // Import utility function to evaluate parcel pickup
-import { pickUpUtility } from "../main/utils";
+import { findNearestDelivery, pickUpUtility } from "../main/utils.js";
+import { intentionReplace } from "../main/agent.js";
 
 /**
  * Function that evaluates and fills agent options for picking parcels
@@ -10,12 +11,34 @@ import { pickUpUtility } from "../main/utils";
 export async function optionsLoop() {
   var begin = new Date().getTime();
   agentData.options = []; // reset available options
-
+  generateOptions(); // generate options based on current state
+  let best_option = findBestOption(); // find the best option
+  intentionReplace.push(best_option); // push the best option to intentionReplace
+}
+//populate the agentData.options array with possible options
+function generateOptions() {
   for (let parcel of agentData.parcels) {
     // Consider only parcels not carried and on a walkable tile
     if (parcel.carriedBy == null && mapData.map[parcel.x][parcel.y] > 0) {
-      let utility = pickUpUtility(parcel);
+      //let utility = pickUpUtility(parcel);
       // utility is computed but not stored yet (likely incomplete)
+      agentData.options.push(['go_pick_up', parcel.x, parcel.y]);
     }
   }
+  let threshold = 2;
+  if (agentData.getPickedScore() > mapData.parcel_reward_avg * threshold) {
+    let nearestDelivery = findNearestDelivery()
+    agentData.best_option = ['go_put_down', nearestDelivery.x,nearestDelivery.y]
+  }
+  console.log("Option generated: ", agentData.options);
+  // Generate options based on agent's current state and environment
+  // This function should be implemented to create options for the agent
+  // For now, it returns an empty array as a placeholder
 }
+function findBestOption() {
+  // Find the best option based on the generated options
+  // This function should be implemented to evaluate and select the best option
+  // For now, it returns an empty array as a placeholder
+  return agentData.options[0];
+}
+

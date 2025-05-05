@@ -1,11 +1,11 @@
 import { agentData, mapData } from "../belief/agentBelief.js";
-import { readFile, findPathAStar, timeout, findMovesAStar } from "./utils.js";
+import { readFile, findPathAStar, timeout, findMovesAStar } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../config.js";
-import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
+//import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
 // Read the domain file for the PDDL planner
-let domain = await readFile("./planners/domain.pddl");
+//let domain = await readFile("./planners/domain.pddl");
 
 /**
  * Plan class
@@ -166,7 +166,7 @@ class GoRandomDelivery extends Plan {
 
 const plans = [];
 
-plans.push(GoToBFS);
+plans.push(AStarGoTo);
 plans.push(PickUp);
 plans.push(PddlPutDown);
 plans.push(GoRandomDelivery);

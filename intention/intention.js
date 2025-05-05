@@ -1,4 +1,6 @@
-import { plans } from "../planners/plans.js";
+import { plans } from "../planning/plans.js";
+import { agentData } from "../belief/agentBelief.js";
+import { optionsLoop } from "./options.js";
 
 /**
  * Intention class
@@ -55,12 +57,13 @@ class Intention {
       if (this.stopped) throw ["stopped intention", ...this.predicate];
 
       // Check if the plan is applicable
-      if (planClass.isApplicableTo(...this.predicate)) {
+      console.log("checking plan", planClass.name, "for intention", this.predicate);
+      if (planClass && planClass.isApplicableTo(this.predicate[0])) {
         // Instantiate and execute the plan
         this.#current_plan = new planClass(this.#parent);
         this.log(
           "achieving intention",
-          ...this.predicate,
+          this.predicate,
           "with plan",
           planClass.name
         );
@@ -97,5 +100,43 @@ class Intention {
     throw ["no plan satisfied the intention ", ...this.predicate];
   }
 }
+class IntentionRevision {
+  #intentions_queue = new Array();
+  get intentions_queue() {
+    return this.#intentions_queue;
+  }
+  async loop() {
+    while (true) {
+      optionsLoop(); // Update agent options
+      if (this.#intentions_queue.length > 0) {
+        console.log("Intention queue length", this.#intentions_queue.length);
+        const intention = this.#intentions_queue[0];
+        agentData.currentIntention = intention;
+        await intention.achieve();
+        this.#intentions_queue.shift();
+      }
+      await new Promise((resolve) => setImmediate(resolve)); // Wait for 1 second before checking again
+    }
+  }
+}
+class IntentionReplace extends IntentionRevision {
+  async push(predicate) {
+    if (
+      this.intentions_queue.some(
+        (intention) =>
+          predicate[0] === intention.predicate[0] &&
+          predicate[1] === intention.predicate[1] &&
+          predicate[2] === intention.predicate[2]
+      )
+    ) return;
+    const intention = new Intention(this, predicate);
+    this.intentions_queue.push(intention);
 
-export { Intention };
+    const best = this.intentions_queue[0]
+    if(best && agentData.currentIntention !== best && agentData.currentIntention) {
+      agentData.currentIntention.stop(); // Stop the current intention if it's not the best one
+    }
+  }
+}
+
+export { IntentionReplace, Intention };
