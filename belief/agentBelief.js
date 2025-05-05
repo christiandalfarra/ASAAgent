@@ -7,6 +7,7 @@ import { mapToMatrix } from "../main/utils.js";
 const agentData = new AgentData();
 const mapData = new Map();
 const startTime = Date.now(); // start time of the game
+let flag = true;
 
 //Set first time the agent data or update
 client.onYou(({ id, name, x, y, score }) => {
@@ -73,7 +74,10 @@ client.onParcelsSensing((parcels_sensed) => {
   //reset to empty array and update the parcels
   agentData.parcels = [];
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
-  optionsLoop();
+  if (flag){
+    optionsLoop();
+    flag = false;
+  }
 });
 
 // update the agents in the agent belief

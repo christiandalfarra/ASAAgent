@@ -58,9 +58,9 @@ class Intention {
 
       // Check if the plan is applicable
       console.log("checking plan", planClass.name, "for intention", this.predicate);
-      if (planClass && this.predicate && planClass.isApplicableTo(this.predicate[0])) {
+      if (planClass && this.predicate && planClass.isApplicableTo(this.#predicate[0])) {
         // Instantiate and execute the plan
-        this.#current_plan = new planClass(this.#parent);
+        this.#current_plan = new planClass(this.predicate);
         this.log(
           "achieving intention",
           this.predicate,
@@ -69,7 +69,7 @@ class Intention {
         );
 
         try {
-          const plan_res = await this.#current_plan.execute(...this.predicate);
+          const plan_res = await this.#current_plan.execute(this.predicate);
           this.log(
             "succesful intention",
             ...this.predicate,
@@ -82,11 +82,11 @@ class Intention {
         } catch (error) {
           this.log(
             "failed intention",
-            ...this.predicate,
+            this.predicate,
             "with plan",
             planClass.name,
             "with error:",
-            ...error
+            error
           );
         }
       }

@@ -48,8 +48,8 @@ class Plan {
 //   pos: { x: number, y: number } | undefined
 //   }
 class AStarGoTo extends Plan {
-  static isApplicable(goal) {
-    return goal.type === "go_to" && goal.pos !== undefined;
+  static isApplicableTo(goal) {
+    return goal.type === "go_to";
   }
   async execute(goal) {
     var path = findMovesAStar(mapData.map, agentData.pos, goal.pos);
@@ -101,20 +101,24 @@ class PickUp extends Plan {
   }
 
   async execute(goal) {
+    let actions = findMovesAStar(mapData.map, agentData.pos, { x: goal[1], y: goal[2] });
+    for(let a in actions) {
+      await client.emitMove(actions[a]);
+    }
     // Check if the agent is on the parcel position and pick it up
-    if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
+    if (agentData.pos.x == goal[1] && agentData.pos.y == goal[2]) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       await client.emitPickup();
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       return true;
     }
 
-    // Move the agent to the parcel position and pick it up
+    /* // Move the agent to the parcel position and pick it up
     if (this.stopped) throw ["stopped"]; // if stopped then quit
-    await this.subIntention(["go_to", goal.x, goal.y]);
+    await this.subIntention(["go_to", goal[1], goal[2]]);
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     await client.emitPickup();
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    if (this.stopped) throw ["stopped"]; // if stopped then quit */
 
     return true;
   }
@@ -129,20 +133,24 @@ class PutDown extends Plan {
   }
 
   async execute(goal) {
+    let actions = findMovesAStar(mapData.map, agentData.pos, { x: goal[1], y: goal[2] });
+    for(let a in actions) {
+      await client.emitMove(actions[a]);
+    }
     // Check if the agent is on the delivery point and put down the parcel
-    if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
+    if (agentData.pos.x == goal[1] && agentData.pos.y == goal[2]) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       await client.emitPutdown();
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       return true;
     }
 
-    // Move the agent to the delivery point and put down the parcel
+    /* // Move the agent to the delivery point and put down the parcel
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     await this.subIntention(["go_to", goal.x, goal.y]);
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     await client.emitPutdown();
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    if (this.stopped) throw ["stopped"]; // if stopped then quit */
 
     return true;
   }
@@ -169,6 +177,6 @@ const plans = [];
 plans.push(PickUp);
 plans.push(AStarGoTo);
 plans.push(PutDown);
-plans.push(GoRandomDelivery);
+//plans.push(GoRandomDelivery);
 
 export { plans };

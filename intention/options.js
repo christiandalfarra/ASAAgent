@@ -23,6 +23,9 @@ function generateOptions() {
       //let utility = pickUpUtility(parcel);
       // utility is computed but not stored yet (likely incomplete)
       agentData.options.push(['go_pick_up', parcel.x, parcel.y]);
+      let nearestDelivery = findNearestDelivery(parcel)
+      console.log("nearest delivery: ", nearestDelivery);
+      agentData.options.push(['go_put_down', nearestDelivery.x, nearestDelivery.y]);
     }
   }
   let threshold = 2;
