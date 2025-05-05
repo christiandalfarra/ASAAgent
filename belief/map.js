@@ -1,17 +1,26 @@
 class Map {
-  map = []; // map of the game
-  utilityMap = []; //map but with walls where there are other agents
-  deliverCoordinates = [];
-  spawnCoordinates = [];
+  // Primary game map and utility overlay
+  map = []; // static map of the game
+  utilityMap = []; // dynamic map considering agents as obstacles
+
+  // Key coordinate sets
+  deliverCoordinates = []; // delivery tile positions
+  spawnCoordinates = []; // spawning tile positions
+
+  // Map dimensions
   width = 0;
   height = 0;
+
+  // Environment parameters
   parcel_reward_avg = 0;
-  parcel_observation_distance = 0; //how far the agent can see
-  decade_frequency = 0.0; //we use it to update the belief of the parcels
-  movement_duration = 0; //how long it takes to move from one tile to another
+  parcel_observation_distance = 0;
+  decade_frequency = 0.0; // frequency used for parcel reward decay
+  movement_duration = 0; // time to move between tiles
+
   constructor() {
+    // Initialize all properties
     this.map = [];
-    this.utilityMap = []; //map with the utility of each tile
+    this.utilityMap = [];
     this.deliverCoordinates = [];
     this.spawningCoordinates = [];
     this.width = 0;
@@ -21,40 +30,42 @@ class Map {
     this.decade_frequency = 0;
     this.movement_duration = 0;
   }
+
   /**
-   * Fill the spawning coordinates
-   *
-   * @param {Array} tiles - The tiles of the map
+   * Set spawn coordinates from tile array
+   * @param {Array} tiles - Array of tile objects
    */
   setSpawnCoordinates(tiles) {
     this.spawningCoordinates = tiles
       .filter((t) => t.type == 1)
       .map((t) => ({ x: t.x, y: t.y }));
   }
+
   /**
-   * Fill the delivery coordinates
-   *
-   * @param {Array} tiles - The tiles of the map
+   * Set delivery coordinates from tile array
+   * @param {Array} tiles - Array of tile objects
    */
   setDeliverCoordinates(tiles) {
     this.deliverCoordinates = tiles
       .filter((t) => t.type == 2)
       .map((t) => ({ x: t.x, y: t.y }));
   }
+
   /**
-   * Update a tile value in the map
-   *
-   * @param {number} x - x of the tile
-   * @param {number} y - y of the tile
-   * @param {number} value - new value to set
+   * Modify a specific tile's utility value
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {number} value - New value to assign in the utility map
    */
   updateTileValue(x, y, value) {
     x = Math.round(x);
     y = Math.round(y);
-    // Check if the coordinates are within the bounds of the map
+
+    // Ensure coordinates are within bounds
     if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
       this.utilityMap[x][y] = value;
     }
   }
 }
+
 export { Map };

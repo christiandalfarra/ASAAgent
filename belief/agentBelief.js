@@ -5,22 +5,24 @@ import { mapToMatrix } from "../main/utils.js";
 
 const agentData = new AgentData();
 const mapData = new Map();
-const startTime = Date.now(); // start time of the game
+const startTime = Date.now(); // Store the start time of the game
 
-//Set first time the agent data or update
+// Listener for agent-specific data
 client.onYou(({ id, name, x, y, score }) => {
-  // if first time, set the id and name
-  if (agentData.id == "" || agentData.id == "") {
+  // Set id and name if not already set
+  if (agentData.id == "" || agentData.name == "") {
     agentData.id = id;
     agentData.name = name;
   }
+  // Update position and score
   agentData.pos.x = Math.round(x);
   agentData.pos.y = Math.round(y);
   agentData.score = Math.round(score);
 });
 
-//set the map, delivery and spawning coordinates
+// Listener for map data
 client.onMap((width, height, tiles) => {
+  // Set dimensions and map matrix
   mapData.width = width;
   mapData.height = height;
   mapData.map = mapToMatrix(width, height, tiles);
@@ -29,7 +31,7 @@ client.onMap((width, height, tiles) => {
   mapData.setDeliverCoordinates(tiles);
 });
 
-// set other values of the map from the config
+// Listener for configuration parameters
 client.onConfig((config) => {
   mapData.parcel_reward_avg = config.PARCEL_REWARD_AVG;
   mapData.parcel_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
@@ -39,64 +41,64 @@ client.onConfig((config) => {
     parcel_decading_interval = Number.MAX_VALUE;
   } else {
     parcel_decading_interval =
-      config.PARCEL_DECADING_INTERVAL.slice(0, -1) * 1000;
+      config.PARCEL_DECADING_INTERVAL.slice(0, -1) * 1000; // Convert from s to ms
   }
   mapData.movement_duration = config.MOVEMENT_DURATION;
   mapData.decade_frequency =
     config.MOVEMENT_DURATION / parcel_decading_interval;
 });
 
-// update the parcel data in the agent belief
+// Listener for sensed parcels
 client.onParcelsSensing((parcels_sensed) => {
-  // update the parcels in the agent data
   let updateParcels = [];
-  // push sensed parcels with new timmestamp
+
+  // Add or update sensed parcels with timestamp
   for (let parcel of parcels_sensed) {
     parcel.timestamp = Date.now();
     updateParcels.push(parcel);
   }
-  // look in what i see before and update the rewards of the parcels that i don't see anymore
+
+  // Update parcels not currently visible by decaying reward
   for (let parcel of agentData.parcels) {
     if (!updateParcels.some((p) => p.id == parcel.id)) {
       let deltat = Date.now() - parcel.timestamp;
-      //if i don't see the parcel anymore, update the reward in my belief
       parcel.reward = Math.round(
         parcel.reward - Math.round(deltat / mapData.decade_frequency) / 1000
       );
-      //if the reward is greater than 0, push it to the updateParcels array
       if (parcel.reward > 0) {
         updateParcels.push(parcel);
       }
     }
   }
-  //reset to empty array and update the parcels
+
+  // Update the agent's belief with refreshed parcels
   agentData.parcels = [];
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
 });
 
-// update the agents in the agent belief
+// Listener for sensed agents (enemies)
 client.onAgentsSensing((agents_sensed) => {
-  // reset to the original map
   mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
   let timestamp = Date.now() - startTime;
+
   for (let index in agents_sensed) {
     let a = agents_sensed[index];
     a.timestamp = timestamp;
-    // if i have not perveived the agent before, add it to my belief
+
+    // If new enemy, add to belief
     if (!agentData.enemies.some((agent) => a.id === agent.id)) {
       a.direction = "none";
       agentData.enemies.push(a);
     } else {
-      // else, update the agent in my belief
+      // Update existing enemy
       let previousIndex = agentData.enemies.findIndex(
         (agent) => a.id === agent.id
       );
       let previous = agentData.enemies[previousIndex];
-      /* try to predict is possible direction and set the tile in the map to 0
-       like a wall, so the agent will not go there, the control is done by look at the timestamp and see if the agent moved 
-       in a range of time for three movements
-      */
-      /* if (timestamp - previous.timestamp < mapData.movement_duration * 3) {
+
+      // Predict enemy direction (disabled logic)
+      /*
+      if (timestamp - previous.timestamp < mapData.movement_duration * 3) {
         if (previous.x < a.x) {
           a.direction = "right";
           mapData.updateTileValue(a.x + 1, a.y, 0);
@@ -112,9 +114,14 @@ client.onAgentsSensing((agents_sensed) => {
         } else {
           a.direction = "none";
         }
-      } */
+      }
+      */
+
+      // Replace old enemy data
       agentData.enemies.splice(previousIndex, 1, a);
     }
+
+    // Update utility map to treat enemy location as wall
     for (let a of agentData.enemies) {
       mapData.updateTileValue(a.x, a.y, 0);
     }
