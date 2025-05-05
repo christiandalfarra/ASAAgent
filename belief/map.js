@@ -53,7 +53,7 @@ class Map {
     y = Math.round(y);
     // Check if the coordinates are within the bounds of the map
     if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-      this.map[x][y] = value;
+      this.utilityMap[x][y] = value;
     }
   }
 }

@@ -96,7 +96,7 @@ client.onAgentsSensing((agents_sensed) => {
        like a wall, so the agent will not go there, the control is done by look at the timestamp and see if the agent moved 
        in a range of time for three movements
       */
-      if (timestamp - previous.timestamp < mapData.movement_duration * 3) {
+      /* if (timestamp - previous.timestamp < mapData.movement_duration * 3) {
         if (previous.x < a.x) {
           a.direction = "right";
           mapData.updateTileValue(a.x + 1, a.y, 0);
@@ -112,7 +112,7 @@ client.onAgentsSensing((agents_sensed) => {
         } else {
           a.direction = "none";
         }
-      }
+      } */
       agentData.enemies.splice(previousIndex, 1, a);
     }
     for (let a of agentData.enemies) {
