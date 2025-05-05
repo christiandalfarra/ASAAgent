@@ -1,6 +1,7 @@
 import { AgentData } from "../belief/agentData.js";
 import { Map } from "../belief/map.js";
 import { client } from "../config.js";
+import { optionsLoop } from "../intention/options.js";
 import { mapToMatrix } from "../main/utils.js";
 
 const agentData = new AgentData();
@@ -72,6 +73,7 @@ client.onParcelsSensing((parcels_sensed) => {
   //reset to empty array and update the parcels
   agentData.parcels = [];
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
+  optionsLoop();
 });
 
 // update the agents in the agent belief

@@ -13,7 +13,7 @@ export async function optionsLoop() {
   agentData.options = []; // reset available options
   generateOptions(); // generate options based on current state
   let best_option = findBestOption(); // find the best option
-  intentionReplace.push(best_option); // push the best option to intentionReplace
+  await intentionReplace.push(best_option); // push the best option to intentionReplace
 }
 //populate the agentData.options array with possible options
 function generateOptions() {
@@ -28,7 +28,17 @@ function generateOptions() {
   let threshold = 2;
   if (agentData.getPickedScore() > mapData.parcel_reward_avg * threshold) {
     let nearestDelivery = findNearestDelivery()
-    agentData.best_option = ['go_put_down', nearestDelivery.x,nearestDelivery.y]
+    agentData.best_option = ['go_put_down', nearestDelivery.x, nearestDelivery.y]
+  }
+  if (agentData.options.length == 0) {
+    let randomX, randomY
+    do {
+       randomX= Math.floor(Math.random() * mapData.width);
+       randomY= Math.floor(Math.random() * mapData.height);
+    } while (mapData.map[randomX][randomY] < 0);
+    if (mapData.map[randomX][randomY] > 0) {
+      agentData.options.push(['go_to', randomX, randomY]);
+    }
   }
   console.log("Option generated: ", agentData.options);
   // Generate options based on agent's current state and environment

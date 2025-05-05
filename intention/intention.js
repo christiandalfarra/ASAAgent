@@ -58,7 +58,7 @@ class Intention {
 
       // Check if the plan is applicable
       console.log("checking plan", planClass.name, "for intention", this.predicate);
-      if (planClass && planClass.isApplicableTo(this.predicate[0])) {
+      if (planClass && this.predicate && planClass.isApplicableTo(this.predicate[0])) {
         // Instantiate and execute the plan
         this.#current_plan = new planClass(this.#parent);
         this.log(
@@ -96,8 +96,8 @@ class Intention {
     if (this.stopped) throw ["stopped intention", ...this.predicate];
 
     // No plan could satisfy the intention
-    this.log("no plan satisfied the intention ", ...this.predicate);
-    throw ["no plan satisfied the intention ", ...this.predicate];
+    this.log("no plan satisfied the intention ", this.predicate);
+    throw ["no plan satisfied the intention ", this.predicate];
   }
 }
 class IntentionRevision {
@@ -106,10 +106,8 @@ class IntentionRevision {
     return this.#intentions_queue;
   }
   async loop() {
-    while (true) {
-      optionsLoop(); // Update agent options
+    while (true) { // Update agent options
       if (this.#intentions_queue.length > 0) {
-        console.log("Intention queue length", this.#intentions_queue.length);
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
         await intention.achieve();
@@ -121,6 +119,7 @@ class IntentionRevision {
 }
 class IntentionReplace extends IntentionRevision {
   async push(predicate) {
+    console.log("DEBUG push predicate:", predicate);
     if (
       this.intentions_queue.some(
         (intention) =>

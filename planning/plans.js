@@ -123,7 +123,7 @@ class PickUp extends Plan {
 /**
  * PddlPutDown class that extends Plan, used to put down a parcel
  */
-class PddlPutDown extends Plan {
+class PutDown extends Plan {
   static isApplicableTo(go_put_down) {
     return go_put_down == "go_put_down";
   }
@@ -152,11 +152,11 @@ class PddlPutDown extends Plan {
  * GoRandomDelivery class that extends Plan, used to move the agent to a random spawn point or delivery point
  */
 class GoRandomDelivery extends Plan {
-  static isApplicableTo(go_random_delivery, x, y, id, utility) {
+  static isApplicableTo(go_random_delivery) {
     return go_random_delivery == "go_random_delivery";
   }
 
-  async execute(go_random_delivery, x, y) {
+  async execute(x, y) {
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     await this.subIntention(["go_to", x, y]);
     if (this.stopped) throw ["stopped"]; // if stopped then quit
@@ -166,9 +166,9 @@ class GoRandomDelivery extends Plan {
 
 const plans = [];
 
-plans.push(AStarGoTo);
 plans.push(PickUp);
-plans.push(PddlPutDown);
+plans.push(AStarGoTo);
+plans.push(PutDown);
 plans.push(GoRandomDelivery);
 
 export { plans };
