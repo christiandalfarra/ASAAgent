@@ -77,7 +77,7 @@ client.onParcelsSensing((parcels_sensed) => {
 // update the agents in the agent belief
 client.onAgentsSensing((agents_sensed) => {
   // reset to the original map
-  mapData.utilityMap = mapData.map;
+  mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
   let timestamp = Date.now() - startTime;
   for (let index in agents_sensed) {
     let a = agents_sensed[index];

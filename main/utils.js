@@ -202,12 +202,12 @@ export function findMovesAStar(map, start, goal) {
  * @returns {number} - The distance from start to goal
  */
 export function distanceAStar(start, end) {
-  const path = findPathAStar(mapData.map, start, end);
-  return path != null ? path.length - 1 : path;
+  const path = findMovesAStar(mapData.map, start, end);
+  return path != null ? path.length : path;
 }
 export function utilityDistanceAStar(start, end) {
-  const path = findPathAStar(mapData.utilityMap, start, end);
-  return path != null ? path.length - 1 : path;
+  const path = findMovesAStar(mapData.utilityMap, start, end);
+  return path != null ? path.length : path;
 }
 export function samePosition(pos1, pos2) {
   return pos1.x === pos2.x && pos1.y === pos2.y;
@@ -216,7 +216,6 @@ export function samePosition(pos1, pos2) {
 /**
  * function to find the nearest coordinate from a set of coordinates
  *
- * @param {Array} setOfCoordinates - The set of coordinates to search from
  * @param {{x:number , y:number}} pos - The position to find the nearest coordinate from
  * @returns {{x:number , y:number}} - The nearest coordinate from the set of coordinates
  */
@@ -224,7 +223,7 @@ export function findNearestDelivery(pos) {
   let nearest;
   let minDistance = 2000;
   for (let coordinate of mapData.deliverCoordinates) {
-    if (!samePosition(coordinate, pos)) {
+    if (!(coordinate.x === pos.x && coordinate.y === pos.y)) {
       let distance = distanceAStar(pos, coordinate);
       if (distance != null && distance < minDistance) {
         minDistance = distance;
@@ -238,9 +237,9 @@ export function findNearestDelivery(pos) {
 export function findNearestEnemyFromPos(pos) {
   let nearest;
   let distance = 2000;
-  for (let enemy of agentData.enemies) {
-    if(!samePosition(enemy, pos)) {
-      let dist = distanceAStar(pos, {x:enemy.x, y:enemy.y});
+  for (let enemy of agentData.enemies) { // set the enemy position to wall
+    if (!samePosition(enemy, pos)) {
+      let dist = distanceAStar(pos, enemy);
       if (dist != null && dist < distance) {
         distance = dist;
         nearest = { x: enemy.x, y: enemy.y };
@@ -311,6 +310,7 @@ export function pickUpUtility(parcel) {
     parcel,
     findNearestDelivery(parcel)
   );
+
   //valuta se ha parcel vicino a meno di 2 tile che non sia quella che sto valutando
   let parcelsNear = countCloseParcels({ x: parcel.x, y: parcel.y }, 2);
   //valuta se nel tempo per raggiungere la parcel col migliore percoroso la parcel perde valore
