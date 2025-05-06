@@ -118,10 +118,13 @@ class IntentionRevision {
     while (true) {
       // Update agent options
       if (this.#intentions_queue.length > 0) {
+        console.log("DEBUG intention queue:", this.#intentions_queue);
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
+        console.log("DEBUG intention queue:", this.#intentions_queue);
         await intention.achieve();
         this.#intentions_queue.shift();
+        optionsLoop(); // Update options after achieving the intention
       }
       await new Promise((resolve) => setImmediate(resolve)); // Wait for 1 second before checking again
     }
@@ -145,12 +148,12 @@ class IntentionReplace extends IntentionRevision {
     const best = this.intentions_queue[0];
     if (
       best &&
-      agentData.currentIntention !== best &&
-      agentData.currentIntention
+      agentData.currentIntention &&
+      agentData.currentIntention !== best
     ) {
       agentData.currentIntention.stop(); // Stop the current intention if it's not the best one
     }
   }
 }
 
-export { IntentionReplace, Intention };
+export { IntentionReplace, Intention, IntentionRevision };

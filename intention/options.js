@@ -23,19 +23,18 @@ function generateOptions() {
       //let utility = pickUpUtility(parcel);
       // utility is computed but not stored yet (likely incomplete)
       agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
-      let nearestDelivery = findNearestDelivery(parcel);
+    }
+  }
+  let threshold = 2;
+  if (agentData.getPickedScore() > mapData.parcel_reward_avg * threshold) {
+    let nearestDelivery = findNearestDelivery(agentData.pos);
       agentData.options.push([
         "go_put_down",
         nearestDelivery.x,
         nearestDelivery.y,
       ]);
-    }
-  }
-  /* let threshold = 2;
-  if (agentData.getPickedScore() > mapData.parcel_reward_avg * threshold) {
-    let nearestDelivery = findNearestDelivery()
     agentData.best_option = ['go_put_down', nearestDelivery.x, nearestDelivery.y]
-  } */
+  }
   if (agentData.options.length == 0) {
     let randomX, randomY;
     do {
@@ -54,5 +53,5 @@ function findBestOption() {
   // Find the best option based on the generated options
   // This function should be implemented to evaluate and select the best option
   // For now, it returns an empty array as a placeholder
-  return agentData.options[0];
+  return agentData.options.shift(); // Return the first option as the best one
 }

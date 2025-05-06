@@ -53,18 +53,21 @@ class Plan {
 //   pos: { x: number, y: number } | undefined
 //   }
 class AStarGoTo extends Plan {
-  static isApplicableTo(goal) {
-    return goal[0] === "go_to";
+  static isApplicableTo(go_to) {
+    return go_to === "go_to";
   }
   async execute(goal) {
-    var path = findMovesAStar(mapData.map, agentData.pos, goal.pos);
-
+    var path = findMovesAStar(mapData.map, agentData.pos, {x: goal[1], y: goal[2]});
+    if (path == null) {
+      this.log("No path found to goal", {x: goal[1], y: goal[2]});
+      return false;
+    }
     while (agentData.pos.x !== goal[1] || agentData.pos.y !== goal[2]) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       let next_step = path.shift();
       // log if the path is empty
       if (next_step == null) {
-        this.log("No path found to goal", goal.pos);
+        this.log("No path found to goal", {x: goal[1], y: goal[2]});
         break;
       }
       // the emitMove function return false if the agent cannot make that move
@@ -86,10 +89,10 @@ class AStarGoTo extends Plan {
         }
         // if the agent is stuck then we need to find a new path
         // we need to find a new path from the current position to the goal
-        path = findMovesAStar(mapData.map, agentData.pos, goal.pos);
+        path = findMovesAStar(mapData.map, agentData.pos, {x: goal[1], y: goal[2]});
         // if the path is empty then we need to stop the plan
         if (path.length == 0) {
-          this.log("No path found to goal", goal.pos);
+          this.log("No path found to goal", {x: goal[1], y: goal[2]});
           throw ["stopped"];
         }
       }
