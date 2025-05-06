@@ -20,13 +20,36 @@ export async function optionsLoop() {
   await intentionReplace.push(best_option); // push the best option to intentionReplace
 }
 
+// Populate the agentData.options array with possible options
 function generateOptions() {
-  // Add all visible parcels as pick-up options
-  for (let parcel of agentData.parcels) {
-    if (parcel.carriedBy == null && mapData.map[parcel.x][parcel.y] > 0) {
-      agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
-    }
+  const viableParcels = agentData.parcels.filter((parcel) => {
+    if (parcel.carriedBy != null || mapData.map[parcel.x][parcel.y] <= 0)
+      return false;
+    const distance = distanceAStar(agentData.pos, parcel);
+    const rewardDrop = mapData.decade_frequency * distance;
+    return parcel.reward - rewardDrop > 1; // ignore parcel if it will decay too much before pickup
+  });
+
+  for (let parcel of viableParcels) {
+    agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
   }
+
+  const nearestParcel =
+    viableParcels.length > 0
+      ? viableParcels.reduce((a, b) => {
+          const distA = distanceAStar(agentData.pos, a);
+          const distB = distanceAStar(agentData.pos, b);
+          return distA < distB ? a : b;
+        })
+      : null;
+
+  const deliveryDistance = distanceAStar(
+    agentData.pos,
+    findNearestDelivery(agentData.pos)
+  );
+  const nearestParcelDistance = nearestParcel
+    ? distanceAStar(agentData.pos, nearestParcel)
+    : Infinity;
 
   const pickedScore = agentData.getPickedScore();
   const adaptiveThreshold = computeAdaptiveThreshold();
@@ -36,7 +59,11 @@ function generateOptions() {
   console.log("DEBUG [options.js] Adaptive Threshold:", adaptiveThreshold);
   console.log("DEBUG [options.js] Score Threshold:", scoreThreshold);
 
-  if (pickedScore > scoreThreshold) {
+  const shouldDeliver =
+    agentData.parcelsCarried.length > 0 &&
+    (pickedScore > scoreThreshold || deliveryDistance < nearestParcelDistance);
+
+  if (shouldDeliver) {
     const nearestDelivery = findNearestDelivery(agentData.pos);
     if (nearestDelivery) {
       console.log(
@@ -53,16 +80,15 @@ function generateOptions() {
         nearestDelivery.x,
         nearestDelivery.y,
       ];
-      return; // Prioritize delivery if it's a good time
+    } else {
+      console.log("DEBUG [options.js] No delivery point found");
     }
   }
 
-  // If no good parcels or deliveries are available, explore known spawn points
   if (
     agentData.options.length === 0 &&
     mapData.spawningCoordinates.length > 0
   ) {
-    // Randomly pick a spawn point to explore
     const randomIndex = Math.floor(
       Math.random() * mapData.spawningCoordinates.length
     );
@@ -71,7 +97,6 @@ function generateOptions() {
     agentData.options.push(["go_to", target.x, target.y]);
   }
 
-  // Fallback: go to a fully random location
   if (agentData.options.length === 0) {
     let randomX, randomY;
     do {
