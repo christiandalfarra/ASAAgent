@@ -237,7 +237,8 @@ export function findNearestDelivery(pos) {
 export function findNearestEnemyFromPos(pos) {
   let nearest;
   let distance = 2000;
-  for (let enemy of agentData.enemies) { // set the enemy position to wall
+  for (let enemy of agentData.enemies) {
+    // set the enemy position to wall
     if (!samePosition(enemy, pos)) {
       let dist = distanceAStar(pos, enemy);
       if (dist != null && dist < distance) {

@@ -22,26 +22,28 @@ function generateOptions() {
     if (parcel.carriedBy == null && mapData.map[parcel.x][parcel.y] > 0) {
       //let utility = pickUpUtility(parcel);
       // utility is computed but not stored yet (likely incomplete)
-      agentData.options.push(['go_pick_up', parcel.x, parcel.y]);
-      let nearestDelivery = findNearestDelivery(parcel)
-      console.log("nearest delivery: ", nearestDelivery);
-      agentData.options.push(['go_put_down', nearestDelivery.x, nearestDelivery.y]);
+      agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
+      let nearestDelivery = findNearestDelivery(parcel);
+      agentData.options.push([
+        "go_put_down",
+        nearestDelivery.x,
+        nearestDelivery.y,
+      ]);
     }
   }
-  let threshold = 2;
+  /* let threshold = 2;
   if (agentData.getPickedScore() > mapData.parcel_reward_avg * threshold) {
     let nearestDelivery = findNearestDelivery()
     agentData.best_option = ['go_put_down', nearestDelivery.x, nearestDelivery.y]
-  }
+  } */
   if (agentData.options.length == 0) {
-    let randomX, randomY
+    let randomX, randomY;
     do {
-       randomX= Math.floor(Math.random() * mapData.width);
-       randomY= Math.floor(Math.random() * mapData.height);
+      randomX = Math.floor(Math.random() * mapData.width);
+      randomY = Math.floor(Math.random() * mapData.height);
     } while (mapData.map[randomX][randomY] < 0);
-    if (mapData.map[randomX][randomY] > 0) {
-      agentData.options.push(['go_to', randomX, randomY]);
-    }
+
+    agentData.options.push(["go_to", randomX, randomY]);
   }
   console.log("Option generated: ", agentData.options);
   // Generate options based on agent's current state and environment
@@ -54,4 +56,3 @@ function findBestOption() {
   // For now, it returns an empty array as a placeholder
   return agentData.options[0];
 }
-

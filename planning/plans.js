@@ -1,5 +1,10 @@
 import { agentData, mapData } from "../belief/agentBelief.js";
-import { readFile, findPathAStar, timeout, findMovesAStar } from "../main/utils.js";
+import {
+  readFile,
+  findPathAStar,
+  timeout,
+  findMovesAStar,
+} from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../config.js";
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
@@ -49,12 +54,12 @@ class Plan {
 //   }
 class AStarGoTo extends Plan {
   static isApplicableTo(goal) {
-    return goal.type === "go_to";
+    return goal[0] === "go_to";
   }
   async execute(goal) {
     var path = findMovesAStar(mapData.map, agentData.pos, goal.pos);
 
-    while (agentData.pos.x !== goal.pos.x || agentData.pos.y !== goal.pos.y) {
+    while (agentData.pos.x !== goal[1] || agentData.pos.y !== goal[2]) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       let next_step = path.shift();
       // log if the path is empty
@@ -101,8 +106,11 @@ class PickUp extends Plan {
   }
 
   async execute(goal) {
-    let actions = findMovesAStar(mapData.map, agentData.pos, { x: goal[1], y: goal[2] });
-    for(let a in actions) {
+    let actions = findMovesAStar(mapData.map, agentData.pos, {
+      x: goal[1],
+      y: goal[2],
+    });
+    for (let a in actions) {
       await client.emitMove(actions[a]);
     }
     // Check if the agent is on the parcel position and pick it up
@@ -133,8 +141,11 @@ class PutDown extends Plan {
   }
 
   async execute(goal) {
-    let actions = findMovesAStar(mapData.map, agentData.pos, { x: goal[1], y: goal[2] });
-    for(let a in actions) {
+    let actions = findMovesAStar(mapData.map, agentData.pos, {
+      x: goal[1],
+      y: goal[2],
+    });
+    for (let a in actions) {
       await client.emitMove(actions[a]);
     }
     // Check if the agent is on the delivery point and put down the parcel

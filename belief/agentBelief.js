@@ -74,7 +74,7 @@ client.onParcelsSensing((parcels_sensed) => {
   //reset to empty array and update the parcels
   agentData.parcels = [];
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
-  if (flag){
+  if (flag) {
     optionsLoop();
     flag = false;
   }

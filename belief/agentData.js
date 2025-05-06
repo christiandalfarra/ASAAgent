@@ -75,7 +75,7 @@ class AgentData {
       console.log(elem);
     }
   }
-  getPickedScore(){
+  getPickedScore() {
     let score = 0;
     if (this.parcelsCarried.length == 0) return 0;
     for (let parcel of this.parcelsCarried) {

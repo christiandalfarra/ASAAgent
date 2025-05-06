@@ -54,25 +54,34 @@ class Intention {
     // Iterate through all available plans
     for (const planClass of plans) {
       // Abort if intention was stopped
-      if (this.stopped) throw ["stopped intention", ...this.predicate];
+      if (this.stopped) throw ["stopped intention", this.#predicate];
 
       // Check if the plan is applicable
-      console.log("checking plan", planClass.name, "for intention", this.predicate);
-      if (planClass && this.predicate && planClass.isApplicableTo(this.#predicate[0])) {
+      console.log(
+        "checking plan",
+        planClass.name,
+        "for intention",
+        this.#predicate
+      );
+      if (
+        planClass &&
+        this.#predicate &&
+        planClass.isApplicableTo(this.#predicate[0])
+      ) {
         // Instantiate and execute the plan
-        this.#current_plan = new planClass(this.predicate);
+        this.#current_plan = new planClass(this.#predicate);
         this.log(
           "achieving intention",
-          this.predicate,
+          this.#predicate,
           "with plan",
           planClass.name
         );
 
         try {
-          const plan_res = await this.#current_plan.execute(this.predicate);
+          const plan_res = await this.#current_plan.execute(this.#predicate);
           this.log(
             "succesful intention",
-            ...this.predicate,
+            this.#predicate,
             "with plan",
             planClass.name,
             "with result:",
@@ -106,7 +115,8 @@ class IntentionRevision {
     return this.#intentions_queue;
   }
   async loop() {
-    while (true) { // Update agent options
+    while (true) {
+      // Update agent options
       if (this.#intentions_queue.length > 0) {
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
@@ -127,12 +137,17 @@ class IntentionReplace extends IntentionRevision {
           predicate[1] === intention.predicate[1] &&
           predicate[2] === intention.predicate[2]
       )
-    ) return;
+    )
+      return;
     const intention = new Intention(this, predicate);
     this.intentions_queue.push(intention);
 
-    const best = this.intentions_queue[0]
-    if(best && agentData.currentIntention !== best && agentData.currentIntention) {
+    const best = this.intentions_queue[0];
+    if (
+      best &&
+      agentData.currentIntention !== best &&
+      agentData.currentIntention
+    ) {
       agentData.currentIntention.stop(); // Stop the current intention if it's not the best one
     }
   }
