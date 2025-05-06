@@ -132,7 +132,12 @@ class IntentionRevision {
 }
 class IntentionReplace extends IntentionRevision {
   async push(predicate) {
-    console.log("DEBUG push predicate:", predicate);
+    console.log(
+      "DEBUG [intention.js] Intention queue before push:",
+      this.intentions_queue.map((i) => i.predicate)
+    );
+    console.log("DEBUG [intention.js] Pushing new intention:", predicate);
+
     if (
       this.intentions_queue.some(
         (intention) =>
@@ -142,6 +147,7 @@ class IntentionReplace extends IntentionRevision {
       )
     )
       return;
+
     const intention = new Intention(this, predicate);
     this.intentions_queue.push(intention);
 
@@ -151,7 +157,10 @@ class IntentionReplace extends IntentionRevision {
       agentData.currentIntention &&
       agentData.currentIntention !== best
     ) {
-      agentData.currentIntention.stop(); // Stop the current intention if it's not the best one
+      console.log(
+        "DEBUG [intention.js] Stopping current intention for better one."
+      );
+      agentData.currentIntention.stop();
     }
   }
 }

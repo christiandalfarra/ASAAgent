@@ -18,23 +18,39 @@ export async function optionsLoop() {
 //populate the agentData.options array with possible options
 function generateOptions() {
   for (let parcel of agentData.parcels) {
-    // Consider only parcels not carried and on a walkable tile
     if (parcel.carriedBy == null && mapData.map[parcel.x][parcel.y] > 0) {
-      //let utility = pickUpUtility(parcel);
-      // utility is computed but not stored yet (likely incomplete)
       agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
     }
   }
+
   let threshold = 2;
-  if (agentData.getPickedScore() > mapData.parcel_reward_avg * threshold) {
+  const pickedScore = agentData.getPickedScore();
+  const scoreThreshold = mapData.parcel_reward_avg * threshold;
+  console.log("DEBUG [options.js] Picked Score:", pickedScore);
+  console.log("DEBUG [options.js] Threshold:", scoreThreshold);
+
+  if (pickedScore > scoreThreshold) {
     let nearestDelivery = findNearestDelivery(agentData.pos);
+    if (nearestDelivery) {
+      console.log(
+        "DEBUG [options.js] Adding delivery option:",
+        nearestDelivery
+      );
       agentData.options.push([
         "go_put_down",
         nearestDelivery.x,
         nearestDelivery.y,
       ]);
-    agentData.best_option = ['go_put_down', nearestDelivery.x, nearestDelivery.y]
+      agentData.best_option = [
+        "go_put_down",
+        nearestDelivery.x,
+        nearestDelivery.y,
+      ];
+    } else {
+      console.log("DEBUG [options.js] No delivery point found");
+    }
   }
+
   if (agentData.options.length == 0) {
     let randomX, randomY;
     do {
@@ -44,14 +60,12 @@ function generateOptions() {
 
     agentData.options.push(["go_to", randomX, randomY]);
   }
-  console.log("Option generated: ", agentData.options);
-  // Generate options based on agent's current state and environment
-  // This function should be implemented to create options for the agent
-  // For now, it returns an empty array as a placeholder
+
+  console.log("DEBUG [options.js] Options generated:", agentData.options);
 }
+
 function findBestOption() {
-  // Find the best option based on the generated options
-  // This function should be implemented to evaluate and select the best option
-  // For now, it returns an empty array as a placeholder
-  return agentData.options.shift(); // Return the first option as the best one
+  const best = agentData.options[0];
+  console.log("DEBUG [options.js] Best option selected:", best);
+  return agentData.options.shift();
 }

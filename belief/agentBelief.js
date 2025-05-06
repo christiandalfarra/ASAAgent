@@ -73,7 +73,15 @@ client.onParcelsSensing((parcels_sensed) => {
   }
   //reset to empty array and update the parcels
   agentData.parcels = [];
+
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
+  // Update parcelsCarried with picked parcels
+  agentData.parcelsCarried = agentData.parcels.filter(
+    (p) => p.carriedBy === agentData.id
+  );
+
+  console.log("DEBUG [agentBelief] Carried parcels:", agentData.parcelsCarried);
+
   if (flag) {
     optionsLoop();
     flag = false;
