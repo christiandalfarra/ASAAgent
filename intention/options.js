@@ -8,6 +8,7 @@ import {
   countCloseParcels,
 } from "../main/utils.js";
 import { intentionReplace } from "../main/agent.js";
+import { DEBUG } from "../debug.js";
 
 /**
  * Function that evaluates and fills agent options for picking parcels
@@ -31,6 +32,17 @@ function generateOptions() {
   });
 
   for (let parcel of viableParcels) {
+    if (DEBUG.optionScoring) {
+      console.log(
+        "DEBUG [options.js] Scoring parcel:",
+        parcel.id,
+        "| Reward:",
+        parcel.reward,
+        "| Pos:",
+        parcel.x,
+        parcel.y
+      );
+    }
     agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
   }
 
@@ -55,9 +67,11 @@ function generateOptions() {
   const adaptiveThreshold = computeAdaptiveThreshold();
   const scoreThreshold = mapData.parcel_reward_avg * adaptiveThreshold;
 
-  console.log("DEBUG [options.js] Picked Score:", pickedScore);
-  console.log("DEBUG [options.js] Adaptive Threshold:", adaptiveThreshold);
-  console.log("DEBUG [options.js] Score Threshold:", scoreThreshold);
+  if (DEBUG.deliveryCheck) {
+    console.log("DEBUG [options.js] Picked Score:", pickedScore);
+    console.log("DEBUG [options.js] Adaptive Threshold:", adaptiveThreshold);
+    console.log("DEBUG [options.js] Score Threshold:", scoreThreshold);
+  }
 
   const shouldDeliver =
     agentData.parcelsCarried.length > 0 &&
@@ -66,10 +80,12 @@ function generateOptions() {
   if (shouldDeliver) {
     const nearestDelivery = findNearestDelivery(agentData.pos);
     if (nearestDelivery) {
-      console.log(
-        "DEBUG [options.js] Adding delivery option:",
-        nearestDelivery
-      );
+      if (DEBUG.deliveryCheck) {
+        console.log(
+          "DEBUG [options.js] Adding delivery option:",
+          nearestDelivery
+        );
+      }
       agentData.options.push([
         "go_put_down",
         nearestDelivery.x,
@@ -80,7 +96,7 @@ function generateOptions() {
         nearestDelivery.x,
         nearestDelivery.y,
       ];
-    } else {
+    } else if (DEBUG.deliveryCheck) {
       console.log("DEBUG [options.js] No delivery point found");
     }
   }
@@ -93,7 +109,9 @@ function generateOptions() {
       Math.random() * mapData.spawningCoordinates.length
     );
     const target = mapData.spawningCoordinates[randomIndex];
-    console.log("DEBUG [options.js] Exploring spawn point:", target);
+    if (DEBUG.explorationFallback) {
+      console.log("DEBUG [options.js] Exploring spawn point:", target);
+    }
     agentData.options.push(["go_to", target.x, target.y]);
   }
 
@@ -103,20 +121,26 @@ function generateOptions() {
       randomX = Math.floor(Math.random() * mapData.width);
       randomY = Math.floor(Math.random() * mapData.height);
     } while (mapData.map[randomX][randomY] < 0);
-    console.log(
-      "DEBUG [options.js] Fallback: random exploration:",
-      randomX,
-      randomY
-    );
+    if (DEBUG.explorationFallback) {
+      console.log(
+        "DEBUG [options.js] Fallback: random exploration:",
+        randomX,
+        randomY
+      );
+    }
     agentData.options.push(["go_to", randomX, randomY]);
   }
 
-  console.log("DEBUG [options.js] Options generated:", agentData.options);
+  if (DEBUG.rankedList) {
+    console.log("DEBUG [options.js] Options generated:", agentData.options);
+  }
 }
 
 function findBestOption() {
   const best = agentData.options[0];
-  console.log("DEBUG [options.js] Best option selected:", best);
+  if (DEBUG.rankedList) {
+    console.log("DEBUG [options.js] Best option selected:", best);
+  }
   return agentData.options.shift();
 }
 

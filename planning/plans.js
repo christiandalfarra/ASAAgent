@@ -7,6 +7,8 @@ import {
 } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../config.js";
+import { DEBUG } from "../debug.js"; // added
+
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
 // Read the domain file for the PDDL planner
@@ -57,6 +59,9 @@ class AStarGoTo extends Plan {
     return go_to === "go_to";
   }
   async execute(goal) {
+    if (DEBUG.planExecution)
+      this.log("DEBUG [AStarGoTo] Starting with goal:", goal);
+
     var path = findMovesAStar(mapData.map, agentData.pos, {
       x: goal[1],
       y: goal[2],
@@ -73,6 +78,8 @@ class AStarGoTo extends Plan {
         this.log("No path found to goal", { x: goal[1], y: goal[2] });
         break;
       }
+      if (DEBUG.planExecution)
+        this.log("DEBUG [AStarGoTo] Moving to:", next_step);
       // the emitMove function return false if the agent cannot make that move
       // or the new position of the agent if the move is successful
       // successful set to true if the move is successful
@@ -96,7 +103,7 @@ class AStarGoTo extends Plan {
           x: goal[1],
           y: goal[2],
         });
-        // if the path is empty then we need to stop the plan
+        // if the path is null then we need to stop the plan
         if (path.length == 0) {
           this.log("No path found to goal", { x: goal[1], y: goal[2] });
           throw ["stopped"];
@@ -115,21 +122,25 @@ class PickUp extends Plan {
   }
 
   async execute(goal) {
+    if (DEBUG.planExecution)
+      this.log("DEBUG [PickUp] Starting with goal:", goal);
     let actions = findMovesAStar(mapData.map, agentData.pos, {
       x: goal[1],
       y: goal[2],
     });
     for (let a in actions) {
+      if (DEBUG.planExecution) this.log("DEBUG [PickUp] Moving:", actions[a]);
       await client.emitMove(actions[a]);
     }
     // Check if the agent is on the parcel position and pick it up
     if (agentData.pos.x == goal[1] && agentData.pos.y == goal[2]) {
-      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      if (this.stopped) throw ["stopped"];
+      if (DEBUG.planExecution)
+        this.log("DEBUG [PickUp] At target, picking up.");
       await client.emitPickup();
-      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      if (this.stopped) throw ["stopped"];
       return true;
     }
-
     /* // Move the agent to the parcel position and pick it up
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     await this.subIntention(["go_to", goal[1], goal[2]]);
@@ -150,11 +161,12 @@ class PutDown extends Plan {
   }
 
   async execute(goal) {
-    console.log(
-      "DEBUG [PutDown] Starting plan to deliver to:",
-      goal[1],
-      goal[2]
-    );
+    if (DEBUG.planExecution)
+      console.log(
+        "DEBUG [PutDown] Starting plan to deliver to:",
+        goal[1],
+        goal[2]
+      );
 
     let actions = findMovesAStar(mapData.map, agentData.pos, {
       x: goal[1],
@@ -162,32 +174,39 @@ class PutDown extends Plan {
     });
 
     if (!actions || actions.length === 0) {
-      console.log("DEBUG [PutDown] No path to delivery point.");
+      if (DEBUG.planExecution)
+        console.log("DEBUG [PutDown] No path to delivery point.");
       throw ["no path"];
     }
 
     for (let a in actions) {
-      console.log("DEBUG [PutDown] Moving:", actions[a]);
+      if (DEBUG.planExecution)
+        console.log("DEBUG [PutDown] Moving:", actions[a]);
       await client.emitMove(actions[a]);
       if (this.stopped) throw ["stopped"];
     }
 
     if (agentData.pos.x == goal[1] && agentData.pos.y == goal[2]) {
-      console.log(
-        "DEBUG [PutDown] At delivery point:",
-        agentData.pos,
-        "| Carried parcels:",
-        agentData.parcelsCarried.length
-      );
+      if (DEBUG.planExecution) {
+        console.log(
+          "DEBUG [PutDown] At delivery point:",
+          agentData.pos,
+          "| Carried parcels:",
+          agentData.parcelsCarried.length
+        );
+      }
       if (agentData.parcelsCarried.length > 0) {
         await client.emitPutdown();
-        console.log("DEBUG [PutDown] Putdown executed.");
+        if (DEBUG.planExecution)
+          console.log("DEBUG [PutDown] Putdown executed.");
       } else {
-        console.log("DEBUG [PutDown] Nothing to deliver.");
+        if (DEBUG.planExecution)
+          console.log("DEBUG [PutDown] Nothing to deliver.");
       }
       return true;
     } else {
-      console.log("DEBUG [PutDown] Didn't reach delivery point.");
+      if (DEBUG.planExecution)
+        console.log("DEBUG [PutDown] Didn't reach delivery point.");
     }
 
     return true;
@@ -203,9 +222,11 @@ class GoRandomDelivery extends Plan {
   }
 
   async execute(x, y) {
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    if (this.stopped) throw ["stopped"];
+    if (DEBUG.planExecution)
+      this.log("DEBUG [GoRandomDelivery] Moving to:", x, y);
     await this.subIntention(["go_to", x, y]);
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
+    if (this.stopped) throw ["stopped"];
     return true;
   }
 }

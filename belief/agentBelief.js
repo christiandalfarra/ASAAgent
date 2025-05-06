@@ -3,6 +3,7 @@ import { Map } from "../belief/map.js";
 import { client } from "../config.js";
 import { optionsLoop } from "../intention/options.js";
 import { mapToMatrix } from "../main/utils.js";
+import { DEBUG } from "../debug.js"; // added
 
 const agentData = new AgentData();
 const mapData = new Map();
@@ -19,6 +20,8 @@ client.onYou(({ id, name, x, y, score }) => {
   agentData.pos.x = Math.round(x);
   agentData.pos.y = Math.round(y);
   agentData.score = Math.round(score);
+  if (DEBUG.agentBelief)
+    console.log("DEBUG [agentBelief] Self updated:", agentData);
 });
 
 //set the map, delivery and spawning coordinates
@@ -29,6 +32,7 @@ client.onMap((width, height, tiles) => {
   mapData.utilityMap = mapToMatrix(width, height, tiles);
   mapData.setSpawnCoordinates(tiles);
   mapData.setDeliverCoordinates(tiles);
+  if (DEBUG.agentBelief) console.log("DEBUG [agentBelief] Map initialized");
 });
 
 // set other values of the map from the config
@@ -46,6 +50,7 @@ client.onConfig((config) => {
   mapData.movement_duration = config.MOVEMENT_DURATION;
   mapData.decade_frequency =
     config.MOVEMENT_DURATION / parcel_decading_interval;
+  if (DEBUG.agentBelief) console.log("DEBUG [agentBelief] Config parsed");
 });
 
 // update the parcel data in the agent belief
@@ -80,7 +85,13 @@ client.onParcelsSensing((parcels_sensed) => {
     (p) => p.carriedBy === agentData.id
   );
 
-  console.log("DEBUG [agentBelief] Carried parcels:", agentData.parcelsCarried);
+  if (DEBUG.agentBelief) {
+    console.log(
+      "DEBUG [agentBelief] Carried parcels:",
+      agentData.parcelsCarried
+    );
+    console.log("DEBUG [agentBelief] Known parcels:", agentData.parcels);
+  }
 
   if (flag) {
     optionsLoop();
@@ -132,6 +143,9 @@ client.onAgentsSensing((agents_sensed) => {
     for (let a of agentData.enemies) {
       mapData.updateTileValue(a.x, a.y, 0);
     }
+  }
+  if (DEBUG.agentBelief) {
+    console.log("DEBUG [agentBelief] Enemy agents:", agentData.enemies);
   }
 });
 
