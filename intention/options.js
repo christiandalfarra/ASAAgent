@@ -3,6 +3,7 @@ import { agentData, mapData } from "../belief/agentBelief.js";
 // Import utility function to evaluate parcel pickup
 import { findNearestDelivery, pickUpUtility } from "../main/utils.js";
 import { intentionReplace } from "../main/agent.js";
+import { distanceAStar, countCloseParcels } from "../main/utils.js";
 
 /**
  * Function that evaluates and fills agent options for picking parcels
@@ -23,14 +24,16 @@ function generateOptions() {
     }
   }
 
-  let threshold = 2;
   const pickedScore = agentData.getPickedScore();
-  const scoreThreshold = mapData.parcel_reward_avg * threshold;
+  const adaptiveThreshold = computeAdaptiveThreshold();
+  const scoreThreshold = mapData.parcel_reward_avg * adaptiveThreshold;
+
   console.log("DEBUG [options.js] Picked Score:", pickedScore);
-  console.log("DEBUG [options.js] Threshold:", scoreThreshold);
+  console.log("DEBUG [options.js] Adaptive Threshold:", adaptiveThreshold);
+  console.log("DEBUG [options.js] Score Threshold:", scoreThreshold);
 
   if (pickedScore > scoreThreshold) {
-    let nearestDelivery = findNearestDelivery(agentData.pos);
+    const nearestDelivery = findNearestDelivery(agentData.pos);
     if (nearestDelivery) {
       console.log(
         "DEBUG [options.js] Adding delivery option:",
@@ -57,7 +60,6 @@ function generateOptions() {
       randomX = Math.floor(Math.random() * mapData.width);
       randomY = Math.floor(Math.random() * mapData.height);
     } while (mapData.map[randomX][randomY] < 0);
-
     agentData.options.push(["go_to", randomX, randomY]);
   }
 
@@ -68,4 +70,31 @@ function findBestOption() {
   const best = agentData.options[0];
   console.log("DEBUG [options.js] Best option selected:", best);
   return agentData.options.shift();
+}
+function computeAdaptiveThreshold() {
+  const base = 1;
+
+  const deliveryDistance = distanceAStar(
+    agentData.pos,
+    findNearestDelivery(agentData.pos)
+  );
+  const parcelsNear = countCloseParcels(agentData.pos, 2);
+
+  const decayFactor = mapData.decade_frequency || 0;
+  const decayPenalty =
+    decayFactor > 0 ? (deliveryDistance * decayFactor) / 10 : 0;
+
+  // Strong bonus for proximity to delivery, reduced if parcels are nearby
+  let deliveryProximityBonus = 0;
+  if (deliveryDistance <= 4) {
+    deliveryProximityBonus = -1.5;
+  }
+
+  // Adjust multiplier down to account for lower actual parcel value
+  const conservativeFactor = 0.5; // Assume parcels yield 50% of map average
+
+  const adaptiveMultiplier =
+    base + deliveryDistance / 10 + decayPenalty + deliveryProximityBonus;
+
+  return Math.max(1, adaptiveMultiplier * conservativeFactor);
 }
