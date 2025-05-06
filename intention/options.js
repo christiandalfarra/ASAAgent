@@ -1,28 +1,55 @@
 // Import agent belief state and map state
 import { agentData, mapData } from "../belief/agentBelief.js";
 // Import utility function to evaluate parcel pickup
-import { findNearestDelivery, pickUpUtility } from "../main/utils.js";
+import {
+  findNearestDelivery,
+  pickUpUtility,
+  distanceAStar,
+  countCloseParcels,
+} from "../main/utils.js";
 import { intentionReplace } from "../main/agent.js";
-import { distanceAStar, countCloseParcels } from "../main/utils.js";
 
 /**
  * Function that evaluates and fills agent options for picking parcels
  * Intended to be called in a loop to keep updating choices
  */
 export async function optionsLoop() {
-  var begin = new Date().getTime();
   agentData.options = []; // reset available options
   generateOptions(); // generate options based on current state
   let best_option = findBestOption(); // find the best option
   await intentionReplace.push(best_option); // push the best option to intentionReplace
 }
-//populate the agentData.options array with possible options
+
+// Populate the agentData.options array with possible options
 function generateOptions() {
-  for (let parcel of agentData.parcels) {
-    if (parcel.carriedBy == null && mapData.map[parcel.x][parcel.y] > 0) {
-      agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
-    }
+  const viableParcels = agentData.parcels.filter((parcel) => {
+    if (parcel.carriedBy != null || mapData.map[parcel.x][parcel.y] <= 0)
+      return false;
+    const distance = distanceAStar(agentData.pos, parcel);
+    const rewardDrop = mapData.decade_frequency * distance;
+    return parcel.reward - rewardDrop > 1; // ignore parcel if it will decay too much before pickup
+  });
+
+  for (let parcel of viableParcels) {
+    agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
   }
+
+  const nearestParcel =
+    viableParcels.length > 0
+      ? viableParcels.reduce((a, b) => {
+          const distA = distanceAStar(agentData.pos, a);
+          const distB = distanceAStar(agentData.pos, b);
+          return distA < distB ? a : b;
+        })
+      : null;
+
+  const deliveryDistance = distanceAStar(
+    agentData.pos,
+    findNearestDelivery(agentData.pos)
+  );
+  const nearestParcelDistance = nearestParcel
+    ? distanceAStar(agentData.pos, nearestParcel)
+    : Infinity;
 
   const pickedScore = agentData.getPickedScore();
   const adaptiveThreshold = computeAdaptiveThreshold();
@@ -32,7 +59,10 @@ function generateOptions() {
   console.log("DEBUG [options.js] Adaptive Threshold:", adaptiveThreshold);
   console.log("DEBUG [options.js] Score Threshold:", scoreThreshold);
 
-  if (pickedScore > scoreThreshold) {
+  const shouldDeliver =
+    pickedScore > scoreThreshold || deliveryDistance < nearestParcelDistance;
+
+  if (shouldDeliver) {
     const nearestDelivery = findNearestDelivery(agentData.pos);
     if (nearestDelivery) {
       console.log(
@@ -54,7 +84,7 @@ function generateOptions() {
     }
   }
 
-  if (agentData.options.length == 0) {
+  if (agentData.options.length === 0) {
     let randomX, randomY;
     do {
       randomX = Math.floor(Math.random() * mapData.width);
@@ -71,9 +101,9 @@ function findBestOption() {
   console.log("DEBUG [options.js] Best option selected:", best);
   return agentData.options.shift();
 }
+
 function computeAdaptiveThreshold() {
   const base = 1;
-
   const deliveryDistance = distanceAStar(
     agentData.pos,
     findNearestDelivery(agentData.pos)
@@ -84,14 +114,12 @@ function computeAdaptiveThreshold() {
   const decayPenalty =
     decayFactor > 0 ? (deliveryDistance * decayFactor) / 10 : 0;
 
-  // Strong bonus for proximity to delivery, reduced if parcels are nearby
   let deliveryProximityBonus = 0;
   if (deliveryDistance <= 4) {
-    deliveryProximityBonus = -1.5;
+    deliveryProximityBonus = -1.5 + parcelsNear * 0.4;
   }
 
-  // Adjust multiplier down to account for lower actual parcel value
-  const conservativeFactor = 0.5; // Assume parcels yield 50% of map average
+  const conservativeFactor = 0.5;
 
   const adaptiveMultiplier =
     base + deliveryDistance / 10 + decayPenalty + deliveryProximityBonus;
