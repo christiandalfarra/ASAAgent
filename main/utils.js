@@ -1,17 +1,20 @@
 import fs from "fs";
-import { agentData, mapData } from "../belief/agentBelief.js";
+import { agentData, mapData, envData} from "../belief/belief.js";
 
-export function mapToMatrix(width, height, tiles) {
-  // map updated 0 = wall, 1 = spawnable, 2 = delivery, 3 = walkable not spawnable
-  let map = [];
-  let grid = [...tiles];
-  for (let i = 0; i < width; i++) {
-    map[i] = [];
-    for (let j = 0; j < height; j++) {
-      map[i][j] = grid[i * width + j].type;
-    }
-  }
-  return map;
+/**
+ * 
+ * @param {number} width 
+ * @param {number} height 
+ * @param {Array} tiles 
+ * @returns 
+ */
+export function convertToMatrix(width, height, tiles) {
+  // Initialize matrix with null or another default value
+  const matrix = Array.from({ length: width }, () => Array(height).fill(0));
+  // Populate matrix
+  for (let index in tiles)
+    matrix[tiles[index].x][tiles[index].y] = tiles[index].type;
+  return matrix;
 }
 /**
  * function to read the pddl domain file
@@ -317,7 +320,7 @@ export function pickUpUtility(parcel) {
   //valuta se nel tempo per raggiungere la parcel col migliore percoroso la parcel perde valore
   // freq dice ogni quanti movimenti la parcel perde 1 punto
   // freq = mov duration / interval decading
-  let decade_frequency = mapData.decade_frequency;
+  let decade_frequency = envData.decade_frequency;
   // valore quando la raggiungo dovrebbere essere
   // score - (distance * decade_frequency)
   let scoreAtPickUp = Math.round(score - distance * decade_frequency);

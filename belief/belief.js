@@ -1,13 +1,15 @@
-import { AgentData } from "../belief/agentData.js";
-import { Map } from "../belief/map.js";
+import { AgentData } from "./agent.js";
+import { MapData } from "./map.js";
+import { EnvData } from "./env.js";
 import { client } from "../config.js";
 import { optionsLoop } from "../intention/options.js";
-import { mapToMatrix } from "../main/utils.js";
+import { convertToMatrix} from "../main/utils.js";
 import { DEBUG } from "../debug.js"; // added
 
-const agentData = new AgentData();
-const mapData = new Map();
-const startTime = Date.now(); // start time of the game
+export const agentData = new AgentData();
+export const mapData = new MapData();
+export const envData = new EnvData();
+export const startTime = Date.now(); // start time of the game
 let flag = true;
 
 //Set first time the agent data or update
@@ -28,8 +30,8 @@ client.onYou(({ id, name, x, y, score }) => {
 client.onMap((width, height, tiles) => {
   mapData.width = width;
   mapData.height = height;
-  mapData.map = mapToMatrix(width, height, tiles);
-  mapData.utilityMap = mapToMatrix(width, height, tiles);
+  mapData.map = convertToMatrix(width, height, tiles);
+  mapData.utilityMap = convertToMatrix(width, height, tiles);
   mapData.setSpawnCoordinates(tiles);
   mapData.setDeliverCoordinates(tiles);
   if (DEBUG.agentBelief) console.log("DEBUG [agentBelief] Map initialized");
@@ -37,8 +39,9 @@ client.onMap((width, height, tiles) => {
 
 // set other values of the map from the config
 client.onConfig((config) => {
-  mapData.parcel_reward_avg = config.PARCEL_REWARD_AVG;
-  mapData.parcel_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
+  envData.parcel_reward_avg = config.PARCEL_REWARD_AVG;
+  envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
+  envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
 
   let parcel_decading_interval = "";
   if (config.PARCEL_DECADING_INTERVAL == "infinite") {
@@ -47,8 +50,8 @@ client.onConfig((config) => {
     parcel_decading_interval =
       config.PARCEL_DECADING_INTERVAL.slice(0, -1) * 1000;
   }
-  mapData.movement_duration = config.MOVEMENT_DURATION;
-  mapData.decade_frequency =
+  envData.movement_duration = config.MOVEMENT_DURATION;
+  envData.decade_frequency =
     config.MOVEMENT_DURATION / parcel_decading_interval;
   if (DEBUG.agentBelief) console.log("DEBUG [agentBelief] Config parsed");
 });
@@ -148,5 +151,3 @@ client.onAgentsSensing((agents_sensed) => {
     console.log("DEBUG [agentBelief] Enemy agents:", agentData.enemies);
   }
 });
-
-export { agentData, mapData };

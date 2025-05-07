@@ -1,4 +1,4 @@
-class AgentData {
+export class AgentData {
   // Agent identifying info and current state
   name = "";
   id = "";
@@ -98,5 +98,3 @@ class AgentData {
     console.log("");
   }
 }
-
-export { AgentData };

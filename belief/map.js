@@ -1,4 +1,4 @@
-class Map {
+export class MapData {
   // Primary game map and utility overlay
   map = []; // static map of the game
   utilityMap = []; // dynamic map considering agents as obstacles
@@ -11,12 +11,6 @@ class Map {
   width = 0;
   height = 0;
 
-  // Environment parameters
-  parcel_reward_avg = 0;
-  parcel_observation_distance = 0;
-  decade_frequency = 0.0; // frequency used for parcel reward decay
-  movement_duration = 0; // time to move between tiles
-
   constructor() {
     // Initialize all properties
     this.map = [];
@@ -25,10 +19,6 @@ class Map {
     this.spawningCoordinates = [];
     this.width = 0;
     this.height = 0;
-    this.parcel_reward_avg = 0;
-    this.parcel_observation_distance = 0;
-    this.decade_frequency = 0;
-    this.movement_duration = 0;
   }
 
   /**
@@ -67,5 +57,3 @@ class Map {
     }
   }
 }
-
-export { Map };

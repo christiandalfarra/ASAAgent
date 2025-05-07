@@ -1,4 +1,4 @@
-import { agentData, mapData } from "../belief/agentBelief.js";
+import { agentData, mapData } from "../belief/belief.js";
 import {
   readFile,
   findPathAStar,
@@ -9,7 +9,7 @@ import {
 import { Intention } from "../intention/intention.js";
 import { client } from "../config.js";
 import { DEBUG } from "../debug.js"; // added
-import { intentionReplace } from "../main/agent.js";
+import { intentionReplace } from "../main/main.js";
 
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 

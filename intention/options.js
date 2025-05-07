@@ -1,5 +1,5 @@
 // Import agent belief state and map state
-import { agentData, mapData } from "../belief/agentBelief.js";
+import { agentData, mapData, envData } from "../belief/belief.js";
 // Import utility function to evaluate parcel pickup
 import {
   findNearestDelivery,
@@ -7,7 +7,7 @@ import {
   distanceAStar,
   countCloseParcels,
 } from "../main/utils.js";
-import { intentionReplace } from "../main/agent.js";
+import { intentionReplace } from "../main/main.js";
 import { DEBUG } from "../debug.js";
 
 /**
@@ -67,7 +67,7 @@ function generateOptions() {
 
   const pickedScore = agentData.getPickedScore();
   const adaptiveThreshold = computeAdaptiveThreshold();
-  const scoreThreshold = mapData.parcel_reward_avg * adaptiveThreshold;
+  const scoreThreshold = envData.parcel_reward_avg * adaptiveThreshold;
 
   if (DEBUG.deliveryCheck) {
     console.log("DEBUG [options.js] Picked Score:", pickedScore);
@@ -114,7 +114,7 @@ function generateOptions() {
     if (DEBUG.explorationFallback) {
       console.log("DEBUG [options.js] Exploring spawn point:", target);
     }
-    agentData.options.push(["go_to", target.x, target.y]);
+    agentData.options.push(["go_pick_up", target.x, target.y]);
   }
 
   if (agentData.options.length === 0) {
@@ -154,7 +154,7 @@ function computeAdaptiveThreshold() {
   );
   const parcelsNear = countCloseParcels(agentData.pos, 2);
 
-  const decayFactor = mapData.decade_frequency || 0;
+  const decayFactor = envData.decade_frequency || 0;
   const decayPenalty =
     decayFactor > 0 ? (deliveryDistance * decayFactor) / 10 : 0;
 

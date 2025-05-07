@@ -1,5 +1,5 @@
 import { plans } from "../planning/plans.js";
-import { agentData } from "../belief/agentBelief.js";
+import { agentData } from "../belief/belief.js";
 import { optionsLoop } from "./options.js";
 
 /**
