@@ -4,7 +4,7 @@ const DEBUG = {
   deliveryCheck: true, // logs delivery evaluation
   explorationFallback: true, // logs go_to or fallback triggers
   agentBelief: false, // logs agent belief updates
-  planExecution: true,
+  planExecution: false,
 };
 
 export { DEBUG };
