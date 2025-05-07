@@ -17,6 +17,7 @@ import { DEBUG } from "../debug.js";
 export async function optionsLoop() {
   agentData.options = []; // reset available options
   generateOptions(); // generate options based on current state
+  console.log("DEBUG [options.js] Options generated:", agentData.options);
   let best_option = findBestOption(); // find the best option
   await intentionReplace.push(best_option); // push the best option to intentionReplace
 }
@@ -30,6 +31,7 @@ function generateOptions() {
     const rewardDrop = mapData.decade_frequency * distance;
     return parcel.reward - rewardDrop > 1; // ignore parcel if it will decay too much before pickup
   });
+  console.log("DEBUG [options.js] Viable parcels:", viableParcels);
 
   for (let parcel of viableParcels) {
     if (DEBUG.optionScoring) {

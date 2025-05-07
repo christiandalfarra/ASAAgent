@@ -118,11 +118,13 @@ class IntentionRevision {
     while (true) {
       // Update agent options
       if (this.#intentions_queue.length > 0) {
-        console.log("DEBUG intention queue:", this.#intentions_queue);
+        console.log(
+          "DEBUG [intention.js] Intention queue:",
+          this.#intentions_queue);
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
-        console.log("DEBUG intention queue:", this.#intentions_queue);
-        await intention.achieve();
+        let achieve = await intention.achieve();
+        console.log("DEBUG [intention.js] Intention achieved:", achieve);
         this.#intentions_queue.shift();
         optionsLoop(); // Update options after achieving the intention
       }

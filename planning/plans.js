@@ -53,7 +53,7 @@ class Plan {
 }
 
 // goal have {
-//   type: "go_to" | "pick" | "put" ,
+//   type: "go_to" | "go_pick_up" | "go_put_down" ,
 //   pos: { x: number, y: number } | undefined
 //   }
 class AStarGoTo extends Plan {
