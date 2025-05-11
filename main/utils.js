@@ -1,12 +1,13 @@
 import fs from "fs";
-import { agentData, mapData, envData} from "../belief/belief.js";
+import { agentData, mapData, envData } from "../belief/belief.js";
 
 /**
- * 
- * @param {number} width 
- * @param {number} height 
- * @param {Array} tiles 
- * @returns 
+ * function to convert the tiles array to a matrix
+ *
+ * @param {number} width - The width of the matrix
+ * @param {number} height - The height of the matrix
+ * @param {Array} tiles - The array of tiles
+ * @returns {Array} - The matrix of tiles
  */
 export function convertToMatrix(width, height, tiles) {
   // Initialize matrix with null or another default value
@@ -17,7 +18,7 @@ export function convertToMatrix(width, height, tiles) {
   return matrix;
 }
 /**
- * function to read the pddl domain file
+ * function to read a file
  *
  * @param {string} path
  * @returns {Promise<string>}
@@ -30,18 +31,6 @@ export function readFile(path) {
     });
   });
 }
-function isWalkable(x, y) {
-  return (
-    x >= 0 &&
-    x < mapData.width &&
-    y >= 0 &&
-    y < mapData.height &&
-    mapData.map[x][y] !== 0
-  );
-}
-function manhattanDistance(a, b) {
-  return Math.round(Math.abs(a.x - b.x) + Math.abs(a.y - b.y));
-}
 /**
  * function to find the path from start to goal using A* algorithm
  *
@@ -53,6 +42,17 @@ function manhattanDistance(a, b) {
 export function findPathAStar(map, start, goal) {
   const cols = map.length;
   const rows = map[0].length;
+
+  // Check if a tile is walkable
+  // 0 = wall, 1 = spawnable, 2 = delivery, 3 = walkable not spawnable
+  const isWalkable = (x, y) => {
+    return x >= 0 && x < cols && y >= 0 && y < rows && map[x][y] !== 0;
+  };
+
+  // Heuristic function for A* (Manhattan distance)
+  const heuristic = (a, b) =>
+    Math.abs(Math.round(a.x) - Math.round(b.x)) +
+    Math.abs(Math.round(a.y) - Math.round(b.y));
 
   const directions = [
     { x: 0, y: -1 },
@@ -68,7 +68,7 @@ export function findPathAStar(map, start, goal) {
   const fScore = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
 
   gScore[start.y][start.x] = 0;
-  fScore[start.y][start.x] = manhattanDistance(start, goal);
+  fScore[start.y][start.x] = heuristic(start, goal);
 
   const nodeKey = (x, y) => `${x},${y}`;
 
@@ -99,7 +99,7 @@ export function findPathAStar(map, start, goal) {
         const neighborKey = nodeKey(nx, ny);
         cameFrom.set(neighborKey, nodeKey(current.x, current.y));
         gScore[ny][nx] = tentativeG;
-        fScore[ny][nx] = tentativeG + manhattanDistance({ x: nx, y: ny }, goal);
+        fScore[ny][nx] = tentativeG + heuristic({ x: nx, y: ny }, goal);
 
         if (!openSet.some((n) => n.x === nx && n.y === ny)) {
           openSet.push({ x: nx, y: ny, f: fScore[ny][nx] });
@@ -109,7 +109,6 @@ export function findPathAStar(map, start, goal) {
   }
   return null;
 }
-
 /**
  * A* pathfinding algorithm to find the moves from start to goal
  *
@@ -196,7 +195,6 @@ export function findMovesAStar(map, start, goal) {
   }
   return null;
 }
-
 /**
  * A* pathfinding algorithm to find the distance from start to goal
  *

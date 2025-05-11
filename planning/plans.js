@@ -22,33 +22,31 @@ import { intentionReplace } from "../main/main.js";
 class Plan {
   // This is used to stop the plan
   #stopped = false;
+  #parent;
+  #sub_intentions = []; // sub intentions of this plan
+
+  constructor(parent) {
+    this.#parent = parent;
+  }
   stop() {
+    this.#stopped = true;
     this.#stopped = true;
     for (const i of this.#sub_intentions) {
       i.stop();
     }
   }
-  get stopped() {
-    return this.#stopped;
-  }
-
-  #parent;
-
-  constructor(parent) {
-    this.#parent = parent;
-  }
-
   log(...args) {
     if (this.#parent && this.#parent.log) this.#parent.log("\t", ...args);
     else console.log(...args);
   }
 
-  #sub_intentions = [];
-
   async subIntention(predicate) {
     const sub_intention = new Intention(this, predicate);
     this.#sub_intentions.push(sub_intention);
-    return await sub_intention.achieve();
+    return sub_intention.achieve();
+  }
+  get stopped() {
+    return this.#stopped;
   }
 }
 
@@ -63,54 +61,35 @@ class AStarGoTo extends Plan {
   async execute(goal) {
     if (DEBUG.planExecution)
       this.log("DEBUG [AStarGoTo] Starting with goal:", goal);
-
-    var path = findMovesAStar(mapData.utilityMap, agentData.pos, {
-      x: goal[1],
-      y: goal[2],
-    });
-    if (path == null) {
-      this.log("No path found to goal", { x: goal[1], y: goal[2] });
-      return false;
-    }
-    while (agentData.pos.x !== goal[1] || agentData.pos.y !== goal[2]) {
+    let path = null;
+    while (!path) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
-      let next_step = path.shift();
-      // log if the path is empty
-      if (next_step == null) {
-        this.log("No path found to goal", { x: goal[1], y: goal[2] });
-        break;
-      }
-      if (DEBUG.planExecution)
-        this.log("DEBUG [AStarGoTo] Moving to:", next_step);
-      // the emitMove function return false if the agent cannot make that move
-      // or the new position of the agent if the move is successful
-      // successful set to true if the move is successful
-      let successful = true;
-      successful = await client.emitMove(next_step);
-      if (this.stopped) throw ["stopped"];
-
-      // if the move is not successful then we need to find a new path
-
-      let stuckCounter = 0;
-      if (!successful) {
-        stuckCounter++;
-        //if it get stucked more than 2 times then we need to stop the plan
-        if (stuckCounter > 2) {
-          this.log("Agent is stucked, stopping plan");
-          throw ["stopped"];
-        }
-        // if the agent is stuck then we need to find a new path
-        // we need to find a new path from the current position to the goal
+      if (mapData.utilityMap[goal[1]][goal[2]] !== 0)
         path = findMovesAStar(mapData.utilityMap, agentData.pos, {
           x: goal[1],
           y: goal[2],
         });
-        // if the path is null then we need to stop the plan
-        if (path && path.length == 0) {
-          this.log("No path found to goal", { x: goal[1], y: goal[2] });
-          throw ["stopped"];
-        }
+    }
+    while (!(agentData.pos.x === goal[1] && agentData.pos.y === goal[2])) {
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      let next_step = null;
+      // log if the path is empty
+      if (!path) {
+        this.log("No path found to goal", { x: goal[1], y: goal[2] });
+      } else {
+        next_step = path.shift();
       }
+      if (DEBUG.planExecution)
+        this.log("DEBUG [AStarGoTo] Moving to:", next_step);
+      let suc = await client.emitMove(next_step);
+      if (!suc || !path) {
+        this.log("DEBUG [AStarGoTo] Move failed, redefine the path.");
+        path = findMovesAStar(mapData.utilityMap, agentData.pos, {
+          x: goal[1],
+          y: goal[2],
+        });
+      }
+      if (this.stopped) throw ["stopped"];
     }
     return true;
   }
@@ -129,20 +108,31 @@ class PickUp extends Plan {
     // Check if the agent is on the parcel position and pick it up
     if (agentData.pos.x == goal[1] && agentData.pos.y == goal[2]) {
       if (this.stopped) throw ["stopped"];
-      if (DEBUG.planExecution)
-        this.log("DEBUG [PickUp] At target, picking up.");
-      await client.emitPickup();
+      this.log("DEBUG [PickUp] At target, picking up (1).");
+      console.log(agentData.options);
+      let suc = await client.emitPickup();
+      if (suc) {
+        agentData.parcelsCarried.push(
+          agentData.parcels.find((p) => p.x == goal[1] && p.y == goal[2])
+        );
+      }
+      if (this.stopped) throw ["stopped"];
+      return true;
+    } else {
+      // Move the agent to the parcel position and pick it up
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      console.log(agentData.options);
+      await this.subIntention(["go_to", goal[1], goal[2]]);
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      let suc = await client.emitPickup();
+      if (suc) {
+        agentData.parcelsCarried.push(
+          agentData.parcels.find((p) => p.x == goal[1] && p.y == goal[2])
+        );
+      }
       if (this.stopped) throw ["stopped"];
       return true;
     }
-    // Move the agent to the parcel position and pick it up
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-    await intentionReplace.push(["go_to", goal[1], goal[2]]);
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-    await intentionReplace.push(["go_pick_up", goal[1], goal[2]]);
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-
-    return true;
   }
 }
 
@@ -179,39 +169,35 @@ class PutDown extends Plan {
         if (DEBUG.planExecution)
           console.log("DEBUG [PutDown] Nothing to deliver.");
       }
+      agentData.parcelsCarried = [];
       return true;
     } else {
-      if (DEBUG.planExecution)
-        console.log("DEBUG [PutDown] Didn't reach delivery point.");
-    }
-    // Move the agent to the parcel position and pick it up
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-    let nearest = findNearestDelivery(agentData.pos);
-    await intentionReplace.push(["go_to", nearest.x, nearest.y]);
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-    if (agentData.parcelsCarried.length > 0) {
-      nearest = findNearestDelivery(agentData.pos);
-      await intentionReplace.push(["go_put_down", nearest.x, nearest.y]);
       if (this.stopped) throw ["stopped"]; // if stopped then quit
+      await this.subIntention(["go_to", goal[1], goal[2]]);
+      if (this.stopped) throw ["stopped"]; // if stopped then quit
+      if (agentData.parcelsCarried.length > 0) {
+        await client.emitPutdown();
+        if (this.stopped) throw ["stopped"]; // if stopped then quit
+        agentData.parcelsCarried = [];
+      }
+      return true;
     }
-
-    return true;
   }
 }
 
 /**
  * GoRandomDelivery class that extends Plan, used to move the agent to a random spawn point or delivery point
  */
-class GoRandomDelivery extends Plan {
-  static isApplicableTo(go_random_delivery) {
-    return go_random_delivery == "go_random_delivery";
+class GoRandomSpawn extends Plan {
+  static isApplicableTo(go_random_spawn) {
+    return go_random_spawn == "go_random_spawn";
   }
 
-  async execute(x, y) {
+  async execute(goal) {
     if (this.stopped) throw ["stopped"];
     if (DEBUG.planExecution)
-      this.log("DEBUG [GoRandomDelivery] Moving to:", x, y);
-    await this.subIntention(["go_to", x, y]);
+      this.log("DEBUG [GoRandomDelivery] Moving to:", goal[1], goal[2]);
+    await this.subIntention(["go_to", goal[1], goal[2]]);
     if (this.stopped) throw ["stopped"];
     return true;
   }
@@ -222,6 +208,6 @@ const plans = [];
 plans.push(PickUp);
 plans.push(AStarGoTo);
 plans.push(PutDown);
-//plans.push(GoRandomDelivery);
+//plans.push(GoRandomSpawn);
 
 export { plans };

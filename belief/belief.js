@@ -3,14 +3,14 @@ import { MapData } from "./map.js";
 import { EnvData } from "./env.js";
 import { client } from "../config.js";
 import { optionsLoop } from "../intention/options.js";
-import { convertToMatrix} from "../main/utils.js";
+import { convertToMatrix } from "../main/utils.js";
 import { DEBUG } from "../debug.js"; // added
 
 export const agentData = new AgentData();
 export const mapData = new MapData();
 export const envData = new EnvData();
 export const startTime = Date.now(); // start time of the game
-let flag = true;
+let flag = true; // flag to check if the map is set
 
 //Set first time the agent data or update
 client.onYou(({ id, name, x, y, score }) => {
@@ -24,6 +24,10 @@ client.onYou(({ id, name, x, y, score }) => {
   agentData.score = Math.round(score);
   if (DEBUG.agentBelief)
     console.log("DEBUG [agentBelief] Self updated:", agentData);
+  if (flag) {
+    optionsLoop(); // update the options
+    flag = false; // set the flag to false
+  }
 });
 
 //set the map, delivery and spawning coordinates
@@ -43,7 +47,7 @@ client.onConfig((config) => {
   envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
   envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
 
-  let parcel_decading_interval = "";
+  let parcel_decading_interval = 0;
   if (config.PARCEL_DECADING_INTERVAL == "infinite") {
     parcel_decading_interval = Number.MAX_VALUE;
   } else {
@@ -55,99 +59,68 @@ client.onConfig((config) => {
     config.MOVEMENT_DURATION / parcel_decading_interval;
   if (DEBUG.agentBelief) console.log("DEBUG [agentBelief] Config parsed");
 });
-
 // update the parcel data in the agent belief
 client.onParcelsSensing((parcels_sensed) => {
   // update the parcels in the agent data
   let updateParcels = [];
+  let timestamp = Date.now() - startTime;
   // push sensed parcels with new timmestamp
   for (let parcel of parcels_sensed) {
-    parcel.timestamp = Date.now();
+    parcel.timestamp = timestamp;
     updateParcels.push(parcel);
   }
   // look in what i see before and update the rewards of the parcels that i don't see anymore
   for (let parcel of agentData.parcels) {
     if (!updateParcels.some((p) => p.id == parcel.id)) {
-      let deltat = Date.now() - parcel.timestamp;
+      let deltat = timestamp - parcel.timestamp;
       //if i don't see the parcel anymore, update the reward in my belief
       parcel.reward = Math.round(
-        parcel.reward - Math.round(deltat / mapData.decade_frequency) / 1000
+        parcel.reward - Math.round(deltat * envData.decade_frequency) / 1000
       );
-      //if the reward is greater than 0, push it to the updateParcels array
-      if (parcel.reward > 0) {
+      //if the reward is greater than 10, push it to the updateParcels array
+      if (parcel.reward > envData.parcel_reward_avg / 5) {
         updateParcels.push(parcel);
       }
     }
   }
   //reset to empty array and update the parcels
   agentData.parcels = [];
-
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
   // Update parcelsCarried with picked parcels
   agentData.parcelsCarried = agentData.parcels.filter(
     (p) => p.carriedBy === agentData.id
   );
-
-  if (DEBUG.agentBelief) {
-    console.log(
-      "DEBUG [agentBelief] Carried parcels:",
-      agentData.parcelsCarried
-    );
-    console.log("DEBUG [agentBelief] Known parcels:", agentData.parcels);
-  }
-
-  if (flag) {
-    optionsLoop();
-    flag = false;
-  }
 });
 
+function updateEnemies(agents_sensed, timestamp) {
+  mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
+  // push sensed agents with new timestamp
+  for (let index in agents_sensed) {
+    let a = agents_sensed[index];
+    // if i never seen it before, push it to the array
+    if (!agentData.enemies.some((enemy) => enemy.id == a.id)) {
+      a.timestamp = timestamp;
+      agentData.enemies.push(a);
+    } else {
+      // if i have seen it before, update the timestamp, check if i see it
+      // more than 10 movements ago, if so, remove it from the array
+      let deltat =
+        timestamp -
+        agentData.enemies.find((enemy) => enemy.id == a.id).timestamp;
+      if (deltat > envData.movement_duration * 10) {
+        agentData.enemies = JSON.parse(
+          JSON.stringify(agentData.enemies.filter((enemy) => enemy.id !== a.id))
+        );
+      }
+    }
+  }
+  for (let a of agentData.enemies) {
+    mapData.updateTileValue(a.x, a.y, 0);
+  }
+}
 // update the agents in the agent belief
 client.onAgentsSensing((agents_sensed) => {
   // reset to the original map
-  mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
   let timestamp = Date.now() - startTime;
-  for (let index in agents_sensed) {
-    let a = agents_sensed[index];
-    a.timestamp = timestamp;
-    // if i have not perveived the agent before, add it to my belief
-    if (!agentData.enemies.some((agent) => a.id === agent.id)) {
-      a.direction = "none";
-      agentData.enemies.push(a);
-    } else {
-      // else, update the agent in my belief
-      let previousIndex = agentData.enemies.findIndex(
-        (agent) => a.id === agent.id
-      );
-      let previous = agentData.enemies[previousIndex];
-      /* try to predict is possible direction and set the tile in the map to 0
-       like a wall, so the agent will not go there, the control is done by look at the timestamp and see if the agent moved 
-       in a range of time for three movements
-      */
-      /* if (timestamp - previous.timestamp < mapData.movement_duration * 3) {
-        if (previous.x < a.x) {
-          a.direction = "right";
-          mapData.updateTileValue(a.x + 1, a.y, 0);
-        } else if (previous.x > a.x) {
-          a.direction = "left";
-          mapData.updateTileValue(a.x - 1, a.y, 0);
-        } else if (previous.y < a.y) {
-          a.direction = "up";
-          mapData.updateTileValue(a.x, a.y + 1, 0);
-        } else if (previous.y > a.y) {
-          a.direction = "down";
-          mapData.updateTileValue(a.x, a.y - 1, 0);
-        } else {
-          a.direction = "none";
-        }
-      } */
-      agentData.enemies.splice(previousIndex, 1, a);
-    }
-    for (let a of agentData.enemies) {
-      mapData.updateTileValue(a.x, a.y, 0);
-    }
-  }
-  if (DEBUG.agentBelief) {
-    console.log("DEBUG [agentBelief] Enemy agents:", agentData.enemies);
-  }
+  updateEnemies(agents_sensed, timestamp);
 });

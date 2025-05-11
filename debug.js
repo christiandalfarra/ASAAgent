@@ -1,8 +1,8 @@
 const DEBUG = {
-  optionScoring: true, // logs scoring for each pick_up
-  rankedList: true, // logs sorted ranked options
-  deliveryCheck: true, // logs delivery evaluation
-  explorationFallback: true, // logs go_to or fallback triggers
+  optionScoring: false, // logs scoring for each pick_up
+  rankedList: false, // logs sorted ranked options
+  deliveryCheck: false, // logs delivery evaluation
+  explorationFallback: false, // logs go_to or fallback triggers
   agentBelief: false, // logs agent belief updates
   planExecution: false,
 };

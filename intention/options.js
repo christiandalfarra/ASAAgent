@@ -3,9 +3,9 @@ import { agentData, mapData, envData } from "../belief/belief.js";
 // Import utility function to evaluate parcel pickup
 import {
   findNearestDelivery,
-  pickUpUtility,
   distanceAStar,
   countCloseParcels,
+  utilityDistanceAStar,
 } from "../main/utils.js";
 import { intentionReplace } from "../main/main.js";
 import { DEBUG } from "../debug.js";
@@ -15,24 +15,93 @@ import { DEBUG } from "../debug.js";
  * Intended to be called in a loop to keep updating choices
  */
 export async function optionsLoop() {
-  agentData.options = []; // reset available options
-  generateOptions(); // generate options based on current state
-  console.log("DEBUG [options.js] Options generated:", agentData.options);
-  let best_option = findBestOption(); // find the best option
-  await intentionReplace.push(best_option); // push the best option to intentionReplace
+  //generateOptions(); // generate options based on current state
+  optionsGen(); // generate options based on current state
+  agentData.best_option = findBestOption(); // find the best option
+  await intentionReplace.push(agentData.best_option); // push the best option to intentionReplace
 }
 
 // Populate the agentData.options array with possible options
+// option generation nuovo
+function optionsGen() {
+  if (
+    agentData.options.length === 0 &&
+    mapData.spawningCoordinates.length > 0
+  ) {
+    console.log("DEBUG [options.js] No options found, exploring spawn point.");
+    const randomIndex = Math.floor(
+      Math.random() * mapData.spawningCoordinates.length
+    );
+    const target = mapData.spawningCoordinates[randomIndex];
+    agentData.options.push(["go_to", target.x, target.y]);
+  }
+  if (
+    agentData.parcelsCarried.length > 0 &&
+    agentData.getPickedScore() > envData.parcel_reward_avg * 2
+  ) {
+    let nearestDelivery = findNearestDelivery(agentData.pos);
+    if (
+      !agentData.options.some(
+        (option) =>
+          option[0] == "go_put_down" &&
+          option[1] === nearestDelivery.x &&
+          option[2] === nearestDelivery.y
+      )
+    ) {
+      agentData.options.push([
+        "go_put_down",
+        nearestDelivery.x,
+        nearestDelivery.y,
+      ]);
+      agentData.best_option = [
+        "go_put_down",
+        nearestDelivery.x,
+        nearestDelivery.y,
+      ];
+    }
+    return;
+  }
+  let viableParcels = agentData.parcels.filter((parcel) => {
+    if (parcel.carriedBy != null || mapData.utilityMap[parcel.x][parcel.y] == 0)
+      return false;
+    const distance = utilityDistanceAStar(agentData.pos, parcel);
+    const rewardDrop = envData.decade_frequency * distance;
+    return parcel.reward - Math.round(rewardDrop) > 0; // ignore parcel if it will decay too much before pickup
+  });
+  console.log("DEBUG [options.js] Viable parcels:", viableParcels);
+  viableParcels.sort((a, b) => {
+    const distA = utilityDistanceAStar(agentData.pos, a);
+    const distB = utilityDistanceAStar(agentData.pos, b);
+    const rewardA = a.reward - Math.round(envData.decade_frequency * distA);
+    const rewardB = b.reward - Math.round(envData.decade_frequency * distB);
+    return rewardB - rewardA; // sort by reward
+  });
+  for (let parcel of viableParcels) {
+    if (
+      !agentData.options.some(
+        (option) =>
+          option[0] == "go_pick_up" &&
+          option[1] === parcel.x &&
+          option[2] === parcel.y
+      )
+    ) {
+      agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
+    }
+  }
+  // print the options
+  console.log("DEBUG [options.js] Options:", agentData.options);
+}
+
+// optioon generation vcchio
 function generateOptions() {
   const viableParcels = agentData.parcels.filter((parcel) => {
     if (parcel.carriedBy != null || mapData.map[parcel.x][parcel.y] <= 0)
       return false;
     const distance = distanceAStar(agentData.pos, parcel);
-    const rewardDrop = mapData.decade_frequency * distance;
+    const rewardDrop =
+      mapData.decade_frequency * distance * envData.movement_duration;
     return parcel.reward - rewardDrop > 1; // ignore parcel if it will decay too much before pickup
   });
-  console.log("DEBUG [options.js] Viable parcels:", viableParcels);
-
   for (let parcel of viableParcels) {
     if (DEBUG.optionScoring) {
       console.log(

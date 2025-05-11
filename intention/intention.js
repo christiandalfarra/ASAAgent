@@ -9,31 +9,22 @@ import { optionsLoop } from "./options.js";
  */
 class Intention {
   // Currently active plan instance
-  #current_plan;
-
-  // Flag to indicate if the intention is stopped
-  #stopped = false;
-  get stopped() {
-    return this.#stopped;
-  }
-  stop() {
-    // Stop current plan and mark intention as stopped
-    this.#stopped = true;
-    if (this.#current_plan) this.#current_plan.stop();
-  }
-
-  // Reference to the parent object (typically another plan or agent)
-  #parent;
-
-  // The goal/predicate associated with this intention (e.g., ['go_to', x, y])
-  get predicate() {
-    return this.#predicate;
-  }
-  #predicate;
+  #current_plan; // The plan currently being executed
+  #parent; // Reference to the parent object (typically another plan or agent)
+  #stopped = false; // Flag to indicate if the intention is stopped
+  #started = false; // Flag to indicate if the intention has started
+  #predicate; // The goal/predicate associated with this intention (e.g., ['go_to', x, y])
+  #sub_intentions = []; // Array to hold sub-intentions
 
   constructor(parent, predicate) {
     this.#parent = parent;
     this.#predicate = predicate;
+  }
+
+  stop() {
+    // Stop current plan and mark intention as stopped
+    this.#stopped = true;
+    if (this.#current_plan) this.#current_plan.stop();
   }
 
   // Log function, using parent logger if available
@@ -42,7 +33,6 @@ class Intention {
     else console.log(...args);
   }
 
-  #started = false;
   /**
    * Attempt to achieve the intention using available plans
    */
@@ -108,19 +98,26 @@ class Intention {
     this.log("no plan satisfied the intention ", this.predicate);
     throw ["no plan satisfied the intention ", this.predicate];
   }
+
+  get stopped() {
+    return this.#stopped;
+  }
+
+  get predicate() {
+    return this.#predicate;
+  }
+
+  async subIntention(predicate) {
+    const sub_intention = new Intention(this, predicate);
+    this.#sub_intentions.push(sub_intention);
+    return sub_intention.achieve();
+  }
 }
 class IntentionRevision {
   #intentions_queue = new Array();
-  get intentions_queue() {
-    return this.#intentions_queue;
-  }
   async loop() {
     while (true) {
-      // Update agent options
       if (this.#intentions_queue.length > 0) {
-        console.log(
-          "DEBUG [intention.js] Intention queue:",
-          this.#intentions_queue);
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
         let achieve = await intention.achieve();
@@ -130,6 +127,9 @@ class IntentionRevision {
       }
       await new Promise((resolve) => setImmediate(resolve)); // Wait for 1 second before checking again
     }
+  }
+  get intentions_queue() {
+    return this.#intentions_queue;
   }
 }
 class IntentionReplace extends IntentionRevision {

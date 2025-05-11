@@ -79,7 +79,7 @@ export class AgentData {
     let score = 0;
     if (this.parcelsCarried.length == 0) return 0;
     for (let parcel of this.parcelsCarried) {
-      if (parcel.reward > 0) {
+      if (parcel && parcel.reward > 0) {
         score += parcel.reward;
       }
     }
