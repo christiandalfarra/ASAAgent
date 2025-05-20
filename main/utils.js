@@ -1,5 +1,5 @@
 import fs from "fs";
-import { agentData, mapData, envData } from "../belief/belief.js";
+import { agentData, mapData, envData, startTime } from "../belief/belief.js";
 
 /**
  * function to convert the tiles array to a matrix
@@ -235,6 +235,11 @@ export function findNearestDelivery(pos) {
   return nearest;
 }
 
+/**
+ *
+ * @param {{x: number, y: number}} pos
+ * @returns {{id: string, x: number, y: number}}
+ */
 export function findNearestEnemyFromPos(pos) {
   let nearest;
   let distance = 2000;
@@ -256,6 +261,15 @@ export function validPosition(pos) {
   );
 }
 
+/**
+ *
+ * @param {{x: number, y: number}} pos
+ * position that we want to evaluate
+ * @param {number} r
+ * radius within we want to check
+ * @returns {number}
+ * numbers of parcels within the circle of center (x,y) and radius r
+ */
 export function countCloseParcels(pos, r) {
   let count = 0;
   //pos posizione attuale ex: x=2,y=3
@@ -293,51 +307,60 @@ export function timeout(mseconds) {
 }
 /**
  *
- * @param {{ id:string, x:number, y:number, carriedBy:string, reward:number }} parcel
+ * @param {{ id:string, x:number, y:number, carriedBy:string, reward:number, timestamp:number}} parcel
  * @returns {number} utility of the parcel
  */
 export function pickUpUtility(parcel) {
+  // if is an old perceived parcel have a lower score
+  let timestampNow = Date.now() - startTime;
+  let deltaStamp = timestampNow - parcel.timestamp;
+  // min 2 max 12 if i have seen the parcel prevuois then 300 ms before
+  let timeScore = (deltaStamp < 500) * 10 + 2;
+
+  // value of the parcel at the pickup considering the path
   let score = parcel.reward;
-  //valuta quanto distante è da me
-  let distance = distanceAStar(agentData.pos, parcel);
-  //valuta quanto è distante dal nemico più vicino alla parcel
-  // prima controlla la ci sono nemici nel belief
+  let distanceMeParcel = distanceAStar(agentData.pos, parcel);
+  let decade_frequency = envData.decade_frequency;
+  let scoreAtPickUp = Math.round(score - distanceMeParcel * decade_frequency);
+
+  // if there is an agent nearest to the parcel, if it is near then
+  // me should have a lower score
   let nearestEnemy = findNearestEnemyFromPos(parcel);
   let distanceEnemyParcel =
     agentData.enemies.length > 0 && nearestEnemy != null
       ? distanceAStar(parcel, nearestEnemy)
       : mapData.width + mapData.height;
-  //valuta quanto distante è dal delivery point
+  // min 0 if the enemy is near than me , max 10 if i am near to the parcel respect to the enemies
+  let scoreEnemyParcel = (distanceEnemyParcel - distanceMeParcel > 0) * 10;
+
+  // how far we are from the nearest delivery point
   let distanceDeliveryParcel = distanceAStar(
     parcel,
     findNearestDelivery(parcel)
   );
 
-  //valuta se ha parcel vicino a meno di 2 tile che non sia quella che sto valutando
-  let parcelsNear = countCloseParcels({ x: parcel.x, y: parcel.y }, 2);
-  //valuta se nel tempo per raggiungere la parcel col migliore percoroso la parcel perde valore
-  // freq dice ogni quanti movimenti la parcel perde 1 punto
-  // freq = mov duration / interval decading
-  let decade_frequency = envData.decade_frequency;
-  // valore quando la raggiungo dovrebbere essere
-  // score - (distance * decade_frequency)
-  let scoreAtPickUp = Math.round(score - distance * decade_frequency);
+  // consider if near the parcel there are other parcels
+  let parcelsNear = countCloseParcels({ x: parcel.x, y: parcel.y }, 1);
+  let nearParcelScore = parcelsNear * 10;
 
-  //devo settare a,b,c,d,e parametri per calcolo della utility
-  let a,
-    b,
-    c,
-    d,
-    e = 1;
-  let utility =
-    scoreAtPickUp +
-    distance +
-    distanceEnemyParcel +
-    distanceDeliveryParcel +
-    parcelsNear;
+  let utility = timeScore + scoreAtPickUp + scoreEnemyParcel + nearParcelScore;
+  console.log(
+    "DEBUG [utils.js] timescore ",
+    timeScore,
+    " scoreAtPickUp ",
+    scoreAtPickUp,
+    " scoreEnemyParcel ",
+    scoreEnemyParcel,
+    " nearParcelScore ",
+    nearParcelScore,
+    " = ",
+    utility
+  );
+  // design a utility function
   return utility;
 }
-export function putDownUtility(parcel) {
+export function putDownUtility() {
+  // evaluate the score, parcels that i have on my head
   let utility = 0;
   return utility;
 }

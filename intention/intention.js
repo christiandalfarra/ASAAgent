@@ -56,7 +56,7 @@ class Intention {
       if (
         planClass &&
         this.#predicate &&
-        planClass.isApplicableTo(this.#predicate[0])
+        planClass.isApplicableTo(this.#predicate.type)
       ) {
         // Instantiate and execute the plan
         this.#current_plan = new planClass(this.#predicate);
@@ -68,7 +68,9 @@ class Intention {
         );
 
         try {
-          const plan_res = await this.#current_plan.execute(this.#predicate);
+          const plan_res = await this.#current_plan.execute(
+            this.#predicate.goal
+          );
           this.log(
             "succesful intention",
             this.#predicate,
@@ -143,9 +145,8 @@ class IntentionReplace extends IntentionRevision {
     if (
       this.intentions_queue.some(
         (intention) =>
-          predicate[0] === intention.predicate[0] &&
-          predicate[1] === intention.predicate[1] &&
-          predicate[2] === intention.predicate[2]
+          predicate.type === intention.predicate.type &&
+          predicate.goal === intention.predicate.goal
       )
     )
       return;

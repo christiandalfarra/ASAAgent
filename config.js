@@ -9,7 +9,7 @@ const server = "https://deliveroojs25.azurewebsites.net";
 // Client initialization with chosen server and authentication token
 const client = new DeliverooApi(
   localhost,
-'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEwM2ViZiIsIm5hbWUiOiJjaWNjaWFuIiwidGVhbUlkIjoiMGFkYmI2IiwidGVhbU5hbWUiOiJjaWNjaWFuIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3NDY1NDk2ODJ9.JvzKg39fAr9xETClyyWJIg3cnvszGafFofPn3aPh68s');
-
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjJjNjJlMSIsIm5hbWUiOiJjaHJpc3NzIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3NDc3NDE1MDV9.Ho6vpyGzWAb9hXXcqtNl7e0B71oRmhFMGiPHMsTrTn0'
+);
 // Export the initialized client to be used across the agent system
 export { client };

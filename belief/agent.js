@@ -1,3 +1,5 @@
+import { agentData } from "./belief.js";
+
 export class AgentData {
   // Agent identifying info and current state
   name = "";
@@ -31,28 +33,6 @@ export class AgentData {
     this.currentIntention = null;
   }
 
-  // Calculate cumulative score of all targeted parcels
-  getParcelToPickScore() {
-    let score = 0;
-    for (let parceltoPick of this.parcelsCarried) {
-      for (let parcel of this.parcels) {
-        if (parceltoPick.id === parcel.id) {
-          // If parcel is invalid, remove from target list
-          if (parcel.reward < 1) {
-            this.parcelsCarried = this.parcelsCarried.filter(
-              (p) => p.id !== parceltoPick.id
-            );
-          } else {
-            // Add parcel reward to score
-            score += parcel.reward;
-            break;
-          }
-        }
-      }
-    }
-    return score;
-  }
-
   /**
    * Search for a parcel by its ID
    * @param {string} id - The ID of the parcel to find
@@ -77,6 +57,10 @@ export class AgentData {
   }
   getPickedScore() {
     let score = 0;
+    console.log(
+      "DEBUG [agent.js] parcels carried in computing score",
+      agentData.parcelsCarried
+    );
     if (this.parcelsCarried.length == 0) return 0;
     for (let parcel of this.parcelsCarried) {
       if (parcel && parcel.reward > 0) {

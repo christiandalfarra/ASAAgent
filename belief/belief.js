@@ -2,7 +2,7 @@ import { AgentData } from "./agent.js";
 import { MapData } from "./map.js";
 import { EnvData } from "./env.js";
 import { client } from "../config.js";
-import { optionsLoop } from "../intention/options.js";
+import { optionsLoop, optionsRevision } from "../intention/options.js";
 import { convertToMatrix } from "../main/utils.js";
 import { DEBUG } from "../debug.js"; // added
 
@@ -28,6 +28,7 @@ client.onYou(({ id, name, x, y, score }) => {
     optionsLoop(); // update the options
     flag = false; // set the flag to false
   }
+  agentData.parcelsCarried.filter((parcel) => parcel.carriedBy === agentData.id && !mapData.deliverCoordinates.some(parcel.x === pos.x && parcel.x === pos.x))
 });
 
 //set the map, delivery and spawning coordinates
@@ -43,6 +44,8 @@ client.onMap((width, height, tiles) => {
 
 // set other values of the map from the config
 client.onConfig((config) => {
+  agentData.parcels = [];
+  agentData.parcelsCarried = [];
   envData.parcel_reward_avg = config.PARCEL_REWARD_AVG;
   envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
   envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
@@ -57,7 +60,7 @@ client.onConfig((config) => {
   envData.movement_duration = config.MOVEMENT_DURATION;
   envData.decade_frequency =
     config.MOVEMENT_DURATION / parcel_decading_interval;
-  if (DEBUG.agentBelief) console.log("DEBUG [agentBelief] Config parsed");
+  envData.parcel_reward_variance = config.PARCEL_REWARD_VARIANCE;
 });
 // update the parcel data in the agent belief
 client.onParcelsSensing((parcels_sensed) => {
@@ -70,7 +73,7 @@ client.onParcelsSensing((parcels_sensed) => {
     updateParcels.push(parcel);
   }
   // look in what i see before and update the rewards of the parcels that i don't see anymore
-  for (let parcel of agentData.parcels) {
+  /* for (let parcel of agentData.parcels) {
     if (!updateParcels.some((p) => p.id == parcel.id)) {
       let deltat = timestamp - parcel.timestamp;
       //if i don't see the parcel anymore, update the reward in my belief
@@ -78,18 +81,14 @@ client.onParcelsSensing((parcels_sensed) => {
         parcel.reward - Math.round(deltat * envData.decade_frequency) / 1000
       );
       //if the reward is greater than 10, push it to the updateParcels array
-      if (parcel.reward > envData.parcel_reward_avg / 5) {
+      if (parcel.reward > 1) {
         updateParcels.push(parcel);
       }
     }
-  }
+  } */
   //reset to empty array and update the parcels
-  agentData.parcels = [];
+  agentData.parcels.splice(0,agentData.parcels.length)
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
-  // Update parcelsCarried with picked parcels
-  agentData.parcelsCarried = agentData.parcels.filter(
-    (p) => p.carriedBy === agentData.id
-  );
 });
 
 function updateEnemies(agents_sensed, timestamp) {

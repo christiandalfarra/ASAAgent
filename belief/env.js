@@ -4,6 +4,7 @@ export class EnvData {
   agents_observation_distance = 0; // distance to observe other agents
   decade_frequency = 0.0; // frequency used for parcel reward decay
   movement_duration = 0; // time to move between tiles
+  parcel_reward_variance = 0;
 
   constructor() {
     // Initialize all properties
@@ -12,5 +13,6 @@ export class EnvData {
     this.agents_observation_distance = 0;
     this.decade_frequency = 0.0;
     this.movement_duration = 0;
+    this.parcel_reward_variance = 0
   }
 }
