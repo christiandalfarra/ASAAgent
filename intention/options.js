@@ -9,7 +9,6 @@ import {
   pickUpUtility,
 } from "../main/utils.js";
 import { intentionReplace } from "../main/main.js";
-import { DEBUG } from "../debug.js";
 
 /**
  * Function that evaluates and fills agent options for picking parcels
@@ -33,7 +32,6 @@ function optionsGen() {
     const rewardDrop = envData.decade_frequency * distance;
     return parcel.reward - Math.round(rewardDrop) > 0; // ignore parcel if it will decay too much before pickup
   });
-  console.log("DEBUG [options.js] Viable parcels:", viableParcels);
   viableParcels.sort((a, b) => {
     const distA = utilityDistanceAStar(agentData.pos, a);
     const distB = utilityDistanceAStar(agentData.pos, b);
@@ -57,12 +55,7 @@ function optionsGen() {
       });
     }
   });
-  console.log("DEBUG [options.js] parcels: ", agentData.parcels);
   if (agentData.parcelsCarried.length > 0 && viableParcels.length === 0) {
-    console.log(
-      "DEBUG [options.js] picked score: ",
-      agentData.getPickedScore()
-    );
     let nearestDelivery = findNearestDelivery(agentData.pos);
     if (!agentData.options.some((option) => option.type == "go_put_down")) {
       agentData.options.push({
@@ -81,7 +74,6 @@ function optionsGen() {
     return;
   }
   if (agentData.options.length === 0) {
-    console.log("DEBUG [options.js] No options found, exploring spawn point.");
     const randomIndex = Math.floor(
       Math.random() * mapData.spawningCoordinates.length
     );
@@ -106,17 +98,6 @@ function generateOptions() {
     return parcel.reward - rewardDrop > 1; // ignore parcel if it will decay too much before pickup
   });
   for (let parcel of viableParcels) {
-    if (DEBUG.optionScoring) {
-      console.log(
-        "DEBUG [options.js] Scoring parcel:",
-        parcel.id,
-        "| Reward:",
-        parcel.reward,
-        "| Pos:",
-        parcel.x,
-        parcel.y
-      );
-    }
     agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
   }
 
@@ -141,12 +122,6 @@ function generateOptions() {
   const adaptiveThreshold = computeAdaptiveThreshold();
   const scoreThreshold = envData.parcel_reward_avg * adaptiveThreshold;
 
-  if (DEBUG.deliveryCheck) {
-    console.log("DEBUG [options.js] Picked Score:", pickedScore);
-    console.log("DEBUG [options.js] Adaptive Threshold:", adaptiveThreshold);
-    console.log("DEBUG [options.js] Score Threshold:", scoreThreshold);
-  }
-
   const shouldDeliver =
     agentData.parcelsCarried.length > 0 &&
     (pickedScore > scoreThreshold || deliveryDistance < nearestParcelDistance);
@@ -154,12 +129,6 @@ function generateOptions() {
   if (shouldDeliver) {
     const nearestDelivery = findNearestDelivery(agentData.pos);
     if (nearestDelivery) {
-      if (DEBUG.deliveryCheck) {
-        console.log(
-          "DEBUG [options.js] Adding delivery option:",
-          nearestDelivery
-        );
-      }
       agentData.options.push([
         "go_put_down",
         nearestDelivery.x,
@@ -170,8 +139,6 @@ function generateOptions() {
         nearestDelivery.x,
         nearestDelivery.y,
       ];
-    } else if (DEBUG.deliveryCheck) {
-      console.log("DEBUG [options.js] No delivery point found");
     }
   }
 
@@ -183,9 +150,6 @@ function generateOptions() {
       Math.random() * mapData.spawningCoordinates.length
     );
     const target = mapData.spawningCoordinates[randomIndex];
-    if (DEBUG.explorationFallback) {
-      console.log("DEBUG [options.js] Exploring spawn point:", target);
-    }
     agentData.options.push(["go_pick_up", target.x, target.y]);
   }
 
@@ -195,18 +159,7 @@ function generateOptions() {
       randomX = Math.floor(Math.random() * mapData.width);
       randomY = Math.floor(Math.random() * mapData.height);
     } while (mapData.map[randomX][randomY] < 0);
-    if (DEBUG.explorationFallback) {
-      console.log(
-        "DEBUG [options.js] Fallback: random exploration:",
-        randomX,
-        randomY
-      );
-    }
     agentData.options.push(["go_to", randomX, randomY]);
-  }
-
-  if (DEBUG.rankedList) {
-    console.log("DEBUG [options.js] Options generated:", agentData.options);
   }
 }
 export function optionsRevision() {

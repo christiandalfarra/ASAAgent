@@ -57,10 +57,6 @@ export class AgentData {
   }
   getPickedScore() {
     let score = 0;
-    console.log(
-      "DEBUG [agent.js] parcels carried in computing score",
-      agentData.parcelsCarried
-    );
     if (this.parcelsCarried.length == 0) return 0;
     for (let parcel of this.parcelsCarried) {
       if (parcel && parcel.reward > 0) {

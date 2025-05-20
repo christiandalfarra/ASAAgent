@@ -13,6 +13,6 @@ export class EnvData {
     this.agents_observation_distance = 0;
     this.decade_frequency = 0.0;
     this.movement_duration = 0;
-    this.parcel_reward_variance = 0
+    this.parcel_reward_variance = 0;
   }
 }

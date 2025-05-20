@@ -2,9 +2,8 @@ import { AgentData } from "./agent.js";
 import { MapData } from "./map.js";
 import { EnvData } from "./env.js";
 import { client } from "../config.js";
-import { optionsLoop, optionsRevision } from "../intention/options.js";
+import { optionsLoop } from "../intention/options.js";
 import { convertToMatrix } from "../main/utils.js";
-import { DEBUG } from "../debug.js"; // added
 
 export const agentData = new AgentData();
 export const mapData = new MapData();
@@ -22,13 +21,15 @@ client.onYou(({ id, name, x, y, score }) => {
   agentData.pos.x = Math.round(x);
   agentData.pos.y = Math.round(y);
   agentData.score = Math.round(score);
-  if (DEBUG.agentBelief)
-    console.log("DEBUG [agentBelief] Self updated:", agentData);
   if (flag) {
     optionsLoop(); // update the options
     flag = false; // set the flag to false
   }
-  agentData.parcelsCarried.filter((parcel) => parcel.carriedBy === agentData.id && !mapData.deliverCoordinates.some(parcel.x === pos.x && parcel.x === pos.x))
+  agentData.parcelsCarried.filter(
+    (parcel) =>
+      parcel.carriedBy === agentData.id &&
+      !mapData.deliverCoordinates.some(parcel.x === pos.x && parcel.x === pos.x)
+  );
 });
 
 //set the map, delivery and spawning coordinates
@@ -39,7 +40,6 @@ client.onMap((width, height, tiles) => {
   mapData.utilityMap = convertToMatrix(width, height, tiles);
   mapData.setSpawnCoordinates(tiles);
   mapData.setDeliverCoordinates(tiles);
-  if (DEBUG.agentBelief) console.log("DEBUG [agentBelief] Map initialized");
 });
 
 // set other values of the map from the config
@@ -87,7 +87,7 @@ client.onParcelsSensing((parcels_sensed) => {
     }
   } */
   //reset to empty array and update the parcels
-  agentData.parcels.splice(0,agentData.parcels.length)
+  agentData.parcels.splice(0, agentData.parcels.length);
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
 });
 

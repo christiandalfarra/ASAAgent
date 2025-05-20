@@ -123,7 +123,7 @@ class IntentionRevision {
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
         let achieve = await intention.achieve();
-        console.log("DEBUG [intention.js] Intention achieved:", achieve);
+        console.log("[intention.js] Intention achieved:", achieve);
         this.#intentions_queue.shift();
         optionsLoop(); // Update options after achieving the intention
       }
@@ -136,11 +136,7 @@ class IntentionRevision {
 }
 class IntentionReplace extends IntentionRevision {
   async push(predicate) {
-    console.log(
-      "DEBUG [intention.js] Intention queue before push:",
-      this.intentions_queue.map((i) => i.predicate)
-    );
-    console.log("DEBUG [intention.js] Pushing new intention:", predicate);
+    console.log("[intention.js] Pushing new intention:", predicate);
 
     if (
       this.intentions_queue.some(
@@ -160,9 +156,7 @@ class IntentionReplace extends IntentionRevision {
       agentData.currentIntention &&
       agentData.currentIntention !== best
     ) {
-      console.log(
-        "DEBUG [intention.js] Stopping current intention for better one."
-      );
+      console.log("[intention.js] Stopping current intention for better one.");
       agentData.currentIntention.stop();
     }
   }

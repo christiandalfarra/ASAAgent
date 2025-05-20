@@ -1,14 +1,8 @@
 import { agentData, mapData } from "../belief/belief.js";
-import {
-  readFile,
-  findPathAStar,
-  timeout,
-  findMovesAStar,
-  findNearestDelivery,
-} from "../main/utils.js";
+import { findMovesAStar } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../config.js";
-import { DEBUG } from "../debug.js"; // added
+
 import { intentionReplace } from "../main/main.js";
 
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
@@ -76,7 +70,7 @@ class AStarGoTo extends Plan {
       }
       let suc = await client.emitMove(next_step);
       if (!suc || !path) {
-        this.log("DEBUG [AStarGoTo] Move failed, redefine the path.");
+        this.log("[plan.js] Move failed, redefine the path.");
         path = findMovesAStar(mapData.utilityMap, agentData.pos, goal);
       }
       if (this.stopped) throw ["stopped"];
@@ -96,7 +90,6 @@ class PickUp extends Plan {
     // Check if the agent is on the parcel position and pick it up
     if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
       if (this.stopped) throw ["stopped"];
-      this.log("DEBUG [PickUp] At target, picking up (1).");
       console.log(agentData.options);
       if (await client.emitPickup()) {
         agentData.parcelsCarried.push(goal);
