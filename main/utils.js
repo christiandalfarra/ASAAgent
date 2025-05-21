@@ -357,7 +357,7 @@ export function pickUpUtility(parcel) {
     utility
   );
   // design a utility function
-  return utility;
+  return utility ? utility : 5;
 }
 export function putDownUtility() {
   // evaluate the score, parcels that i have on my head

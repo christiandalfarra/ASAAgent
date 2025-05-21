@@ -4,6 +4,7 @@ import { Intention } from "../intention/intention.js";
 import { client } from "../config.js";
 
 import { intentionReplace } from "../main/main.js";
+import { optionsGen } from "../intention/options.js";
 
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
@@ -52,14 +53,25 @@ class AStarGoTo extends Plan {
   static isApplicableTo(go_to) {
     return go_to === "go_to";
   }
-  async execute(goal) {
+  async execute(predicate) {
     let path = null;
+    let goal = predicate.goal
+    let utility = predicate.utility
     while (!path) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       if (mapData.utilityMap[goal.x][goal.y] !== 0)
         path = findMovesAStar(mapData.utilityMap, agentData.pos, goal);
     }
     while (!(agentData.pos.x === goal.x && agentData.pos.y === goal.y)) {
+      if(utility == 1){
+        console.log("DEBUG [plan.js] mi sto muovendo a caso")
+        optionsGen();
+        if(agentData.options.some((option) => option.type === "go_pick_up")){
+          return false
+        }
+      }else if (utility == 2){
+        console.log("DEBUG [plan.js] mi muovo in maniera utile")
+      }
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       let next_step = null;
       // log if the path is empty
@@ -86,7 +98,9 @@ class PickUp extends Plan {
     return go_pick_up == "go_pick_up";
   }
 
-  async execute(goal) {
+  async execute(predicate) {
+    let goal = predicate.goal
+    let utility = predicate.utility
     // Check if the agent is on the parcel position and pick it up
     if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
       if (this.stopped) throw ["stopped"];
@@ -101,7 +115,8 @@ class PickUp extends Plan {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       await this.subIntention({
         type: "go_to",
-        goal: { x: goal.x, y: goal.y },
+        goal: goal,
+        utility: 2,
       });
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       if (await client.emitPickup()) {
@@ -121,13 +136,15 @@ class PutDown extends Plan {
     return go_put_down == "go_put_down";
   }
 
-  async execute(goal) {
+  async execute(predicate) {
+    let goal = predicate.goal
+    let utility = predicate.utility
     if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
       await client.emitPutdown();
       return true;
     } else {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
-      await this.subIntention({ type: "go_to", goal: goal });
+      await this.subIntention({ type: "go_to", goal: goal, utility: 2 });
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       await client.emitPutdown();
       agentData.parcelsCarried.length = 0;

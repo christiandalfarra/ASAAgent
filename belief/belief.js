@@ -22,7 +22,7 @@ client.onYou(({ id, name, x, y, score }) => {
   agentData.pos.y = Math.round(y);
   agentData.score = Math.round(score);
   if (flag) {
-    optionsLoop(); // update the options
+    optionsLoop() // update the options
     flag = false; // set the flag to false
   }
   agentData.parcelsCarried.filter(
@@ -73,7 +73,7 @@ client.onParcelsSensing((parcels_sensed) => {
     updateParcels.push(parcel);
   }
   // look in what i see before and update the rewards of the parcels that i don't see anymore
-  /* for (let parcel of agentData.parcels) {
+  for (let parcel of agentData.parcels) {
     if (!updateParcels.some((p) => p.id == parcel.id)) {
       let deltat = timestamp - parcel.timestamp;
       //if i don't see the parcel anymore, update the reward in my belief
@@ -85,7 +85,7 @@ client.onParcelsSensing((parcels_sensed) => {
         updateParcels.push(parcel);
       }
     }
-  } */
+  }
   //reset to empty array and update the parcels
   agentData.parcels.splice(0, agentData.parcels.length);
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));

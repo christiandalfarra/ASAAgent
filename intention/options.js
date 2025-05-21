@@ -24,7 +24,7 @@ export async function optionsLoop() {
 
 // Populate the agentData.options array with possible options
 // option generation nuovo
-function optionsGen() {
+export function optionsGen() {
   let viableParcels = agentData.parcels.filter((parcel) => {
     if (parcel.carriedBy != null || mapData.utilityMap[parcel.x][parcel.y] == 0)
       return false;
@@ -50,7 +50,7 @@ function optionsGen() {
     ) {
       agentData.options.push({
         type: "go_pick_up",
-        goal: parcel,
+        goal: { x: parcel.x, y: parcel.y },
         utility: pickUpUtility(parcel),
       });
     }

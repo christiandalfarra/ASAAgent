@@ -69,7 +69,7 @@ class Intention {
 
         try {
           const plan_res = await this.#current_plan.execute(
-            this.#predicate.goal
+            this.#predicate
           );
           this.log(
             "succesful intention",
