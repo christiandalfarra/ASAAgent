@@ -48,6 +48,17 @@ ASAAgent
    ```bash
    npm install
    ```
+3. **Run single agent**
+   
+   ```bash
+   node index.js number=SINGLE
+   ```
+
+4. **Run multi-agent**
+   
+   ```bash
+   node index.js number=MULTI
+   ```
 
 ---
 

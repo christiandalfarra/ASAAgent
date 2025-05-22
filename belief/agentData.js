@@ -1,5 +1,3 @@
-import { agentData } from "./belief.js";
-
 export class AgentData {
   // Agent identifying info and current state
   name = "";
@@ -19,6 +17,7 @@ export class AgentData {
   enemies = [];
 
   currentIntention = null; // current intention being pursued
+  mateId = '';
 
   constructor() {
     // Initialize attributes
@@ -31,6 +30,7 @@ export class AgentData {
     this.best_option = [];
     this.enemies = [];
     this.currentIntention = null;
+    this.mateId = ''
   }
 
   /**

@@ -60,35 +60,35 @@ class Intention {
       ) {
         // Instantiate and execute the plan
         this.#current_plan = new planClass(this.#predicate);
-        this.log(
+        /* this.log(
           "achieving intention",
           this.#predicate,
           "with plan",
           planClass.name
-        );
+        ); */
 
         try {
           const plan_res = await this.#current_plan.execute(
             this.#predicate
           );
-          this.log(
+          /* this.log(
             "succesful intention",
             this.#predicate,
             "with plan",
             planClass.name,
             "with result:",
             plan_res
-          );
+          ); */
           return plan_res;
         } catch (error) {
-          this.log(
+          /* this.log(
             "failed intention",
             this.predicate,
             "with plan",
             planClass.name,
             "with error:",
             error
-          );
+          ); */
         }
       }
     }
@@ -120,10 +120,13 @@ class IntentionRevision {
   async loop() {
     while (true) {
       if (this.#intentions_queue.length > 0) {
+        this.#intentions_queue.sort((a,b) => {
+          b.predicate.utility - a.predicate.utility
+        })
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
         let achieve = await intention.achieve();
-        console.log("[intention.js] Intention achieved:", achieve);
+        // console.log("[intention.js] Intention achieved:", achieve);
         this.#intentions_queue.shift();
         optionsLoop(); // Update options after achieving the intention
       }
@@ -136,7 +139,7 @@ class IntentionRevision {
 }
 class IntentionReplace extends IntentionRevision {
   async push(predicate) {
-    console.log("[intention.js] Pushing new intention:", predicate);
+    //console.log("[intention.js] Pushing new intention:", predicate);
 
     if (
       this.intentions_queue.some(
@@ -151,15 +154,15 @@ class IntentionReplace extends IntentionRevision {
     this.intentions_queue.push(intention);
 
     const best = this.intentions_queue[0];
-    if (
+    /* if (
       best &&
       agentData.currentIntention &&
       agentData.currentIntention !== best
     ) {
       console.log("[intention.js] Stopping current intention for better one.");
       agentData.currentIntention.stop();
-    }
+    } */
   }
 }
 
-export { IntentionReplace, Intention, IntentionRevision };
+export {Intention,IntentionReplace};

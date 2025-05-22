@@ -1,10 +1,9 @@
 import { agentData, mapData } from "../belief/belief.js";
 import { findMovesAStar } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
-import { client } from "../config.js";
+import { client } from "../conf.js";
 
-import { intentionReplace } from "../main/main.js";
-import { optionsGen } from "../intention/options.js";
+import { optionsGen, optionsLoop } from "../intention/options.js";
 
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
@@ -55,22 +54,29 @@ class AStarGoTo extends Plan {
   }
   async execute(predicate) {
     let path = null;
-    let goal = predicate.goal
-    let utility = predicate.utility
+    let goal = predicate.goal;
+    let utility = predicate.utility;
     while (!path) {
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       if (mapData.utilityMap[goal.x][goal.y] !== 0)
         path = findMovesAStar(mapData.utilityMap, agentData.pos, goal);
     }
     while (!(agentData.pos.x === goal.x && agentData.pos.y === goal.y)) {
-      if(utility == 1){
-        console.log("DEBUG [plan.js] mi sto muovendo a caso")
+      let stuckCounter = 0
+      // utility = 0 menas that is going randomly
+      // utility = 1 means that is going to pick up
+      // utility = 2 means that is going to putdown
+      if (utility == 0) {
         optionsGen();
-        if(agentData.options.some((option) => option.type === "go_pick_up")){
-          return false
+        if (agentData.options.some((option) => option.type === "go_pick_up")) {
+          return false;
         }
-      }else if (utility == 2){
-        console.log("DEBUG [plan.js] mi muovo in maniera utile")
+      } else if (utility == 1) {
+        //console.log("DEBUG [plan.js] mi muovo in maniera utile")
+      } else if (utility == 2){
+
+        // if i get stuck and the path is not available for that putdown, search for the nearest delivery
+        // that is not the one that is blocked
       }
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       let next_step = null;
@@ -82,6 +88,10 @@ class AStarGoTo extends Plan {
       }
       let suc = await client.emitMove(next_step);
       if (!suc || !path) {
+        stuckCounter++;
+        if(stuckCounter > 10){
+          optionsLoop();
+        }
         this.log("[plan.js] Move failed, redefine the path.");
         path = findMovesAStar(mapData.utilityMap, agentData.pos, goal);
       }
@@ -99,8 +109,7 @@ class PickUp extends Plan {
   }
 
   async execute(predicate) {
-    let goal = predicate.goal
-    let utility = predicate.utility
+    let goal = predicate.goal;
     // Check if the agent is on the parcel position and pick it up
     if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
       if (this.stopped) throw ["stopped"];
@@ -116,7 +125,7 @@ class PickUp extends Plan {
       await this.subIntention({
         type: "go_to",
         goal: goal,
-        utility: 2,
+        utility: 1,
       });
       if (this.stopped) throw ["stopped"]; // if stopped then quit
       if (await client.emitPickup()) {
@@ -137,8 +146,7 @@ class PutDown extends Plan {
   }
 
   async execute(predicate) {
-    let goal = predicate.goal
-    let utility = predicate.utility
+    let goal = predicate.goal;
     if (agentData.pos.x == goal.x && agentData.pos.y == goal.y) {
       await client.emitPutdown();
       return true;

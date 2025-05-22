@@ -321,7 +321,7 @@ export function pickUpUtility(parcel) {
   let score = parcel.reward;
   let distanceMeParcel = distanceAStar(agentData.pos, parcel);
   let decade_frequency = envData.decade_frequency;
-  let scoreAtPickUp = Math.round(score - distanceMeParcel * decade_frequency);
+  let scoreAtPickUp = Math.round(score - (distanceMeParcel ? distanceMeParcel : mapData.width + mapData.height) * decade_frequency);
 
   // if there is an agent nearest to the parcel, if it is near then
   // me should have a lower score

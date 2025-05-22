@@ -1,7 +1,7 @@
-import { AgentData } from "./agent.js";
-import { MapData } from "./map.js";
-import { EnvData } from "./env.js";
-import { client } from "../config.js";
+import { AgentData } from "./agentData.js";
+import { MapData } from "./mapData.js";
+import { EnvData } from "./envData.js";
+import { client } from "../conf.js";
 import { optionsLoop } from "../intention/options.js";
 import { convertToMatrix } from "../main/utils.js";
 
