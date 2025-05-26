@@ -9,10 +9,13 @@
 ```plaintext
 ASAAgent
 ├── belief/                         # Agent's internal model of the environment
-│   ├── agentBelief.js              # Main interface to update beliefs from events
+│   ├── belief.js              # Main interface to update beliefs from events
 │   ├── agentData.js                # Class representing agent's internal state (parcels, enemies, etc.)
-│   ├── map.js                      # Class modeling the map and utility map
+│   ├── mapData.js                      # Class modeling the map and utility map
+│   ├── envData.js                      # Class modeling the environment and configuration settings
 │
+├── coordination/                      #
+│   ├── coordination.js                # class for manage the comunication strategy
 ├── intention/                      # Handles goal execution logic
 │   ├── intention.js                # Defines the Intention class
 │   ├── options.js                  # Computes actionable options based on current beliefs
@@ -20,7 +23,6 @@ ASAAgent
 ├── planning/                       # Planning logic using PDDL
 │   ├── domain.pddl                 # PDDL domain definition
 │   ├── plans.js                    # Plan implementations used by the BDI engine
-│   ├── utils.js                    # Utilities for planning and pathfinding
 │
 ├── main/                           # Runtime agent logic
 │   ├── agent.js                    # Entry point for agent behavior

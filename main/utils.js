@@ -255,6 +255,21 @@ export function findNearestEnemyFromPos(pos) {
   }
   return nearest;
 }
+export function findNearestFrom(pos,setOfCoordinates){
+  let nearest;
+  let distance = 2000;
+  for (let coord of setOfCoordinates) {
+    // set the enemy position to wall
+    if (!samePosition(coord, pos)) {
+      let dist = distanceAStar(pos, coord);
+      if (dist != null && dist < distance) {
+        distance = dist;
+        nearest = { x: coord.x, y: coord.y };
+      }
+    }
+  }
+  return nearest;
+}
 export function validPosition(pos) {
   return (
     pos.x > 0 && pos.x < mapData.width && pos.y > 0 && pos.y < mapData.height

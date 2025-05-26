@@ -27,7 +27,7 @@ export async function optionsLoop() {
 // Populate the agentData.options array with possible options
 // option generation nuovo
 export function optionsGen() {
-  let viableParcels = agentData.parcels.filter((parcel) => {
+  let viableParcels = agentData.parcels?.filter((parcel) => {
     if (parcel.carriedBy != null || mapData.utilityMap[parcel.x][parcel.y] == 0)
       return false;
     const distance = utilityDistanceAStar(agentData.pos, parcel);
@@ -83,7 +83,7 @@ export function optionsGen() {
     agentData.options.push({
       type: "go_to",
       goal: { x: target.x, y: target.y },
-      utility: 1,
+      utility: 0,
     });
   }
 }
