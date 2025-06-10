@@ -68,9 +68,7 @@ class Intention {
         ); */
 
         try {
-          const plan_res = await this.#current_plan.execute(
-            this.#predicate
-          );
+          const plan_res = await this.#current_plan.execute(this.#predicate);
           /* this.log(
             "succesful intention",
             this.#predicate,
@@ -89,6 +87,7 @@ class Intention {
             "with error:",
             error
           ); */
+          return false;
         }
       }
     }
@@ -120,9 +119,9 @@ class IntentionRevision {
   async loop() {
     while (true) {
       if (this.#intentions_queue.length > 0) {
-        this.#intentions_queue.sort((a,b) => {
-          b.predicate.utility - a.predicate.utility
-        })
+        this.#intentions_queue.sort((a, b) => {
+          b.predicate.utility - a.predicate.utility;
+        });
         const intention = this.#intentions_queue[0];
         agentData.currentIntention = intention;
         let achieve = await intention.achieve();
@@ -165,4 +164,4 @@ class IntentionReplace extends IntentionRevision {
   }
 }
 
-export {Intention,IntentionReplace};
+export { Intention, IntentionReplace };

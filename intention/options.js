@@ -18,7 +18,7 @@ export async function optionsLoop() {
   //generateOptions(); // generate options based on current state
   optionsGen(); // generate options based on current state
   optionsRevision();
-    // print the options
+  // print the options
   console.log("DEBUG [options.js] Options:", agentData.options);
   agentData.best_option = findBestOption(); // find the best option
   await intentionReplace.push(agentData.best_option); // push the best option to intentionReplace
@@ -28,7 +28,7 @@ export async function optionsLoop() {
 // option generation nuovo
 export function optionsGen() {
   let viableParcels = agentData.parcels?.filter((parcel) => {
-    if (parcel.carriedBy != null || mapData.utilityMap[parcel.x][parcel.y] == 0)
+    if (parcel.carriedBy || mapData.utilityMap[parcel.x][parcel.y] == 0)
       return false;
     const distance = utilityDistanceAStar(agentData.pos, parcel);
     const rewardDrop = envData.decade_frequency * distance;
@@ -52,26 +52,34 @@ export function optionsGen() {
     ) {
       agentData.options.push({
         type: "go_pick_up",
-        goal: { x: parcel.x, y: parcel.y },
+        goal: parcel,
         utility: pickUpUtility(parcel),
+      });
+      agentData.options.filter((option) => {
+        option.type !== "go_to";
       });
     }
   });
-  if (agentData.parcelsCarried.length > 0 && viableParcels.length === 0) {
+  if (
+    agentData.parcelsCarried.length > 0 &&
+    viableParcels.length === 0 &&
+    checkDelivery()
+  ) {
     let nearestDelivery = findNearestDelivery(agentData.pos);
     if (!agentData.options.some((option) => option.type == "go_put_down")) {
       agentData.options.push({
         type: "go_put_down",
         goal: nearestDelivery,
-        utility:
-          (envData.parcel_reward_avg + envData.parcel_reward_variance) * 2,
+        utility: 100,
       });
       agentData.best_option = {
         type: "go_put_down",
         goal: nearestDelivery,
-        utility:
-          (envData.parcel_reward_avg + envData.parcel_reward_variance) * 2,
+        utility: 100,
       };
+      agentData.options.filter((option) => {
+        option.type !== "go_to";
+      });
     }
     return;
   }
@@ -85,81 +93,6 @@ export function optionsGen() {
       goal: { x: target.x, y: target.y },
       utility: 0,
     });
-  }
-}
-// optioon generation vcchio
-function generateOptions() {
-  const viableParcels = agentData.parcels.filter((parcel) => {
-    if (parcel.carriedBy != null || mapData.map[parcel.x][parcel.y] <= 0)
-      return false;
-    const distance = distanceAStar(agentData.pos, parcel);
-    const rewardDrop =
-      mapData.decade_frequency * distance * envData.movement_duration;
-    return parcel.reward - rewardDrop > 1; // ignore parcel if it will decay too much before pickup
-  });
-  for (let parcel of viableParcels) {
-    agentData.options.push(["go_pick_up", parcel.x, parcel.y]);
-  }
-
-  const nearestParcel =
-    viableParcels.length > 0
-      ? viableParcels.reduce((a, b) => {
-          const distA = distanceAStar(agentData.pos, a);
-          const distB = distanceAStar(agentData.pos, b);
-          return distA < distB ? a : b;
-        })
-      : null;
-
-  const deliveryDistance = distanceAStar(
-    agentData.pos,
-    findNearestDelivery(agentData.pos)
-  );
-  const nearestParcelDistance = nearestParcel
-    ? distanceAStar(agentData.pos, nearestParcel)
-    : Infinity;
-
-  const pickedScore = agentData.getPickedScore();
-  const adaptiveThreshold = computeAdaptiveThreshold();
-  const scoreThreshold = envData.parcel_reward_avg * adaptiveThreshold;
-
-  const shouldDeliver =
-    agentData.parcelsCarried.length > 0 &&
-    (pickedScore > scoreThreshold || deliveryDistance < nearestParcelDistance);
-
-  if (shouldDeliver) {
-    const nearestDelivery = findNearestDelivery(agentData.pos);
-    if (nearestDelivery) {
-      agentData.options.push([
-        "go_put_down",
-        nearestDelivery.x,
-        nearestDelivery.y,
-      ]);
-      agentData.best_option = [
-        "go_put_down",
-        nearestDelivery.x,
-        nearestDelivery.y,
-      ];
-    }
-  }
-
-  if (
-    agentData.options.length === 0 &&
-    mapData.spawningCoordinates.length > 0
-  ) {
-    const randomIndex = Math.floor(
-      Math.random() * mapData.spawningCoordinates.length
-    );
-    const target = mapData.spawningCoordinates[randomIndex];
-    agentData.options.push(["go_pick_up", target.x, target.y]);
-  }
-
-  if (agentData.options.length === 0) {
-    let randomX, randomY;
-    do {
-      randomX = Math.floor(Math.random() * mapData.width);
-      randomY = Math.floor(Math.random() * mapData.height);
-    } while (mapData.map[randomX][randomY] < 0);
-    agentData.options.push(["go_to", randomX, randomY]);
   }
 }
 export function optionsRevision() {
@@ -176,7 +109,17 @@ export function optionsRevision() {
 function findBestOption() {
   return agentData.options.shift();
 }
-
+function checkDelivery() {
+  let scoreAtDelivery = 0;
+  agentData.parcelsCarried.forEach((parcel) => {
+    let deliveryCoord = findNearestDelivery(agentData.pos);
+    let distance = distanceAStar(agentData.pos, deliveryCoord);
+    scoreAtDelivery += Math.round(
+      parcel.reward - distance * envData.decade_frequency
+    );
+  });
+  return scoreAtDelivery > 1;
+}
 function computeAdaptiveThreshold() {
   const base = 1;
   const deliveryDistance = distanceAStar(

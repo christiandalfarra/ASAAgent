@@ -1,7 +1,7 @@
 import { AgentData } from "./agentData.js";
 import { MapData } from "./mapData.js";
 import { EnvData } from "./envData.js";
-import { client } from "../conf.js";
+import { client, teamAgentId } from "../conf.js";
 import { optionsLoop } from "../intention/options.js";
 import { convertToMatrix } from "../main/utils.js";
 
@@ -22,13 +22,15 @@ client.onYou(({ id, name, x, y, score }) => {
   agentData.pos.y = Math.round(y);
   agentData.score = Math.round(score);
   if (flag) {
-    optionsLoop() // update the options
+    optionsLoop(); // update the options
     flag = false; // set the flag to false
   }
   agentData.parcelsCarried.filter(
     (parcel) =>
       parcel.carriedBy === agentData.id &&
-      !mapData.deliverCoordinates.some(parcel.x === pos.x && parcel.x === pos.x)
+      !mapData.deliverCoordinates.some(
+        (pos) => parcel.x === pos.x && parcel.x === pos.x
+      )
   );
 });
 
@@ -50,6 +52,8 @@ client.onConfig((config) => {
   envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
   envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
 
+  agentData.teamAgentId = teamAgentId; // set the team agent id
+  console.log("DEBUG [belief.js] Team Agent ID:", agentData.teamAgentId);
   let parcel_decading_interval = 0;
   if (config.PARCEL_DECADING_INTERVAL == "infinite") {
     parcel_decading_interval = Number.MAX_VALUE;
@@ -89,6 +93,17 @@ client.onParcelsSensing((parcels_sensed) => {
   //reset to empty array and update the parcels
   agentData.parcels.splice(0, agentData.parcels.length);
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
+  agentData.parcels.forEach((parcel) => {
+    if (
+      parcel.carriedBy === agentData.id &&
+      !agentData.parcelsCarried.some((p) => (parcel.id = p.id)) &&
+      !mapData.deliverCoordinates.some(
+        (pos) => parcel.x === pos.x && parcel.x === pos.x
+      )
+    ) {
+      agentData.parcelsCarried.push(parcel);
+    }
+  });
 });
 
 function updateEnemies(agents_sensed, timestamp) {
