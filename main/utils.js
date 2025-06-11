@@ -416,6 +416,9 @@ export function pickUpUtility(parcel) {
   // value of the parcel at the pickup considering the path
   let score = parcel.reward;
   let distanceMeParcel = distanceAStar(agentData.pos, parcel);
+  if (distanceMeParcel == null) {
+    return 0;
+  }
   let decade_frequency = envData.decade_frequency;
   let scoreAtPickUp = Math.round(
     score -

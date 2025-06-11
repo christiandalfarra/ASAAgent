@@ -101,7 +101,7 @@ client.onParcelsSensing((parcels_sensed) => {
   agentData.parcels.forEach((parcel) => {
     if (
       parcel.carriedBy === agentData.id &&
-      !agentData.parcelsCarried.some((p) => (parcel.id = p.id)) &&
+      !agentData.parcelsCarried.some((p) => (parcel.id === p.id)) &&
       !mapData.deliverCoordinates.some(
         (pos) => parcel.x === pos.x && parcel.x === pos.x
       )
@@ -125,7 +125,7 @@ client.onMsg(async (id, name, msg, reply) => {
   if (msg?.type == "say_intention") {
     console.log("DEBUG [belief.js] Received message:", msg.data);
   }
-  switch (msg.type) {
+  switch(msg.type){
     case "say_parcels":
       break;
     case "say_agents":

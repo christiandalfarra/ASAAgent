@@ -4,6 +4,7 @@ import {
   findNearestDelivery,
   findNearestFrom,
   findAStar,
+  utilityDistanceAStar,
 } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../conf.js";
@@ -75,11 +76,15 @@ class AStarGoTo extends Plan {
     // execute the moves in the path
     while (!(agentData.pos.x === goal.x && agentData.pos.y === goal.y)) {
       let next_move = path.shift();
-      let suc = await client.emitMove(next_move.action);
+      if (next_move === undefined) {
+        path = findAStar(mapData.utilityMap, agentData.pos, goal);
+        next_move = path.shift();
+      }
+      let suc = await client.emitMove(next_move?.action);
       if (!suc) {
         if (
           agentData.enemies.some(
-            (enemy) => enemy.x === next_move.x && enemy.y === next_move.y
+            (enemy) => enemy.x === next_move?.x && enemy.y === next_move?.y
           )
         ) {
           console.log("DEBUG: enemy is body blocking");
@@ -103,7 +108,7 @@ class AStarGoTo extends Plan {
           break;
         case 1:
           // if the tile that i want to reach for the pickup is not free go for something else
-          if (mapData.utilityMap[goal.x][goal.y] === 0) {
+          if (mapData.utilityMap[goal?.x][goal?.y] === 0) {
             console.log("DEBUG: goal tile is occupied");
             return false; // if the goal tile is occupied then stop the plan
           }
@@ -113,9 +118,27 @@ class AStarGoTo extends Plan {
           if (agentData.parcelsCarried.length == 0) {
             return false;
           }
+          //while delivering check if there are valuable parcels to pickup
+          let valuableParcels = agentData.parcels.filter((parcel) => {
+            return (
+              parcel.carriedBy === null &&
+              mapData.utilityMap[parcel.x][parcel.y] !== 0 &&
+              parcel.reward > 10 &&
+              utilityDistanceAStar(agentData.pos, parcel) < 3
+            );
+          });
+          if (valuableParcels.length > 0) {
+            valuableParcels.forEach(async (parcel) => {
+              await this.subIntention({
+                type: "go_pick_up",
+                goal: parcel,
+                utility: 2,
+              });
+            });
+          }
           // if the tile for the delivery is not free then check for a new delivery
           if (mapData.utilityMap[goal.x][goal.y] === 0) {
-            console.log("DEBUG: goal tile is occupied");
+            console.log("DEBUG: delivery tile is occupied");
             goal = checkNewDelivery(goal);
             path = findAStar(mapData.utilityMap, agentData.pos, goal);
             if (!goal || !path) {
@@ -145,12 +168,11 @@ class PickUp extends Plan {
   }
 
   async execute(predicate) {
-    let goal = predicate.goal;
     // Move the agent to the parcel position and pick it up
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     await this.subIntention({
       type: "go_to",
-      goal: goal,
+      goal: predicate.goal,
       utility: 1,
     });
     if (this.stopped) throw ["stopped"]; // if stopped then quit
@@ -169,8 +191,13 @@ class PutDown extends Plan {
   async execute(predicate) {
     let goal = predicate.goal;
     if (this.stopped) throw ["stopped"]; // if stopped then quit
-    if (!(await this.subIntention({ type: "go_to", goal: goal, utility: 2 }))) {
-      return false;
+    let success = await this.subIntention({
+      type: "go_to",
+      goal: goal,
+      utility: 2,
+    });
+    if (!success) {
+      return success;
     }
     if (await client.emitPutdown()) {
       agentData.parcelsCarried.length = 0;
@@ -180,14 +207,15 @@ class PutDown extends Plan {
     }
   }
 }
-/* class TeamPutDown extends Plan{
+class PutDownTeam extends Plan {
   static isApplicableTo(type) {
-    return type === "team_put_down";
+    return type == "go_put_down_team";
   }
-  async execute(predicate) {
-    
-  }
-} */
+  // goal : {x,y} is the position where the two agents have to meet in order to do the put down for one the pickup for the other
+  // a1pos : {x,y} is the position of the first agent nearest to the goal
+  // a2pos : {x,y} is the position of the second agent nearest to the gola that is not the one of the first agent
+  async execute(predicate) {}
+}
 
 const plans = [];
 

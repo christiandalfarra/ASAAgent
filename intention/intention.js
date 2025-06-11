@@ -61,36 +61,36 @@ class Intention {
       ) {
         // Instantiate and execute the plan
         this.#current_plan = new planClass(this.#predicate);
-        /* this.log(
+        this.log(
           "achieving intention",
           this.#predicate,
           "with plan",
           planClass.name
-        ); */
+        );
         // if i am in a multi agent system, notify other agents of the intention
         if (agentData.mateId !== agentData.id) {
           await sayIntention(this.#predicate); // Notify other agents of the intention
         }
         try {
           const plan_res = await this.#current_plan.execute(this.#predicate);
-          /* this.log(
+          this.log(
             "succesful intention",
             this.#predicate,
             "with plan",
             planClass.name,
             "with result:",
             plan_res
-          ); */
+          );
           return plan_res;
         } catch (error) {
-          /* this.log(
+          this.log(
             "failed intention",
             this.predicate,
             "with plan",
             planClass.name,
             "with error:",
             error
-          ); */
+          );
           return false;
         }
       }
@@ -155,16 +155,6 @@ class IntentionReplace extends IntentionRevision {
 
     const intention = new Intention(this, predicate);
     this.intentions_queue.push(intention);
-
-    const best = this.intentions_queue[0];
-    /* if (
-      best &&
-      agentData.currentIntention &&
-      agentData.currentIntention !== best
-    ) {
-      console.log("[intention.js] Stopping current intention for better one.");
-      agentData.currentIntention.stop();
-    } */
   }
 }
 
