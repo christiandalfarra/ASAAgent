@@ -457,10 +457,9 @@ export function pickUpUtility(parcel) {
     utility
   );
   // design a utility function
-  return utility ? utility : 5;
-}
-export function putDownUtility() {
-  // evaluate the score, parcels that i have on my head
-  let utility = 0;
-  return utility;
+  if (distanceAStar(agentData.pos, parcel) == null) {
+    return 0;
+  } else {
+    return utility ? utility : 5;
+  }
 }

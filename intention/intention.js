@@ -1,6 +1,7 @@
 import { plans } from "../planning/plans.js";
 import { agentData } from "../belief/belief.js";
 import { optionsLoop } from "./options.js";
+import { sayIntention } from "../coordination/coordination.js";
 
 /**
  * Intention class
@@ -66,7 +67,10 @@ class Intention {
           "with plan",
           planClass.name
         ); */
-
+        // if i am in a multi agent system, notify other agents of the intention
+        if (agentData.mateId !== agentData.id) {
+          await sayIntention(this.#predicate); // Notify other agents of the intention
+        }
         try {
           const plan_res = await this.#current_plan.execute(this.#predicate);
           /* this.log(

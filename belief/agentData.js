@@ -17,7 +17,8 @@ export class AgentData {
   enemies = [];
 
   currentIntention = null; // current intention being pursued
-  mateId = '';
+  mateId = "";
+  mateIntention = null; // current intention of the mate agent
 
   constructor() {
     // Initialize attributes
@@ -30,7 +31,8 @@ export class AgentData {
     this.best_option = [];
     this.enemies = [];
     this.currentIntention = null;
-    this.mateId = ''
+    this.mateId = "";
+    this.mateIntention = null;
   }
 
   /**
@@ -47,14 +49,6 @@ export class AgentData {
     return undefined;
   }
 
-  /**
-   * Print all known parcels for debugging
-   */
-  printParcels() {
-    for (let elem of this.parcels) {
-      console.log(elem);
-    }
-  }
   getPickedScore() {
     let score = 0;
     if (this.parcelsCarried.length == 0) return 0;
@@ -64,17 +58,5 @@ export class AgentData {
       }
     }
     return score;
-  }
-
-  /**
-   * Print important agent state info for debugging
-   */
-  toString() {
-    console.log("name: ", this.name);
-    console.log("id: ", this.id);
-    console.log("role: ", this.role);
-    console.log("pos: ", this.pos);
-    console.log("best_option: ", this.best_option);
-    console.log("");
   }
 }

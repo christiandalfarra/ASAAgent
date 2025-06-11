@@ -129,10 +129,12 @@ class AStarGoTo extends Plan {
   }
 }
 function checkNewDelivery(goal) {
-  let deliveryCoord = mapData.deliverCoordinates.filter((coord) => {
-    coord.x !== goal.x && coord.y !== goal.y;
-  });
-  return findNearestFrom(agentData.pos, deliveryCoord);
+  return findNearestFrom(
+    agentData.pos,
+    mapData.deliverCoordinates.filter((coord) => {
+      coord.x !== goal.x && coord.y !== goal.y;
+    })
+  );
 }
 /**
  * PddlPickUp class that extends Plan, used to pick up a parcel

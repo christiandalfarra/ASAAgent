@@ -4,6 +4,7 @@ import { EnvData } from "./envData.js";
 import { client, teamAgentId } from "../conf.js";
 import { optionsLoop } from "../intention/options.js";
 import { convertToMatrix } from "../main/utils.js";
+import { sayParcels, sayAgents } from "../coordination/coordination.js";
 
 export const agentData = new AgentData();
 export const mapData = new MapData();
@@ -52,8 +53,9 @@ client.onConfig((config) => {
   envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
   envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
 
-  agentData.teamAgentId = teamAgentId; // set the team agent id
-  console.log("DEBUG [belief.js] Team Agent ID:", agentData.teamAgentId);
+  agentData.mateId = teamAgentId; // set the team agent id
+  console.log("DEBUG [belief.js] Team Agent ID:", agentData.mateId);
+
   let parcel_decading_interval = 0;
   if (config.PARCEL_DECADING_INTERVAL == "infinite") {
     parcel_decading_interval = Number.MAX_VALUE;
@@ -88,6 +90,9 @@ client.onParcelsSensing((parcels_sensed) => {
       if (parcel.reward > 1) {
         updateParcels.push(parcel);
       }
+      /* if (agentData.mateId !== agentData.id) {
+        sayParcels(updateParcels); // communicate the parcels to the team agent
+      } */
     }
   }
   //reset to empty array and update the parcels
@@ -104,6 +109,32 @@ client.onParcelsSensing((parcels_sensed) => {
       agentData.parcelsCarried.push(parcel);
     }
   });
+});
+
+// update the agents in the agent belief
+client.onAgentsSensing((agents_sensed) => {
+  // reset to the original map
+  let timestamp = Date.now() - startTime;
+  updateEnemies(agents_sensed, timestamp);
+});
+
+client.onMsg(async (id, name, msg, reply) => {
+  let fromId = id;
+  let from = name;
+  console.log("DEBUG [belief.js] Received message:", msg);
+  if (msg?.type == "say_intention") {
+    console.log("DEBUG [belief.js] Received message:", msg.data);
+  }
+  switch (msg.type) {
+    case "say_parcels":
+      break;
+    case "say_agents":
+      break;
+    case "say_intention":
+      break;
+    default:
+      console.log("DEBUG [belief.js] Unknown message type:", msg.type);
+  }
 });
 
 function updateEnemies(agents_sensed, timestamp) {
@@ -132,9 +163,3 @@ function updateEnemies(agents_sensed, timestamp) {
     mapData.updateTileValue(a.x, a.y, 0);
   }
 }
-// update the agents in the agent belief
-client.onAgentsSensing((agents_sensed) => {
-  // reset to the original map
-  let timestamp = Date.now() - startTime;
-  updateEnemies(agents_sensed, timestamp);
-});

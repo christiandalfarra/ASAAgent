@@ -61,9 +61,10 @@ export function optionsGen() {
     }
   });
   if (
-    agentData.parcelsCarried.length > 0 &&
-    viableParcels.length === 0 &&
-    checkDelivery()
+    agentData.getPickedScore() > envData.parcel_reward_avg * 0.75 ||
+    (agentData.parcelsCarried.length > 0 &&
+      viableParcels.length === 0 &&
+      checkDelivery())
   ) {
     let nearestDelivery = findNearestDelivery(agentData.pos);
     if (!agentData.options.some((option) => option.type == "go_put_down")) {
@@ -118,29 +119,5 @@ function checkDelivery() {
       parcel.reward - distance * envData.decade_frequency
     );
   });
-  return scoreAtDelivery > 1;
-}
-function computeAdaptiveThreshold() {
-  const base = 1;
-  const deliveryDistance = distanceAStar(
-    agentData.pos,
-    findNearestDelivery(agentData.pos)
-  );
-  const parcelsNear = countCloseParcels(agentData.pos, 2);
-
-  const decayFactor = envData.decade_frequency || 0;
-  const decayPenalty =
-    decayFactor > 0 ? (deliveryDistance * decayFactor) / 10 : 0;
-
-  let deliveryProximityBonus = 0;
-  if (deliveryDistance <= 4) {
-    deliveryProximityBonus = -1.5 + parcelsNear * 0.4;
-  }
-
-  const conservativeFactor = 0.5;
-
-  const adaptiveMultiplier =
-    base + deliveryDistance / 10 + decayPenalty + deliveryProximityBonus;
-
-  return Math.max(1, adaptiveMultiplier * conservativeFactor);
+  return scoreAtDelivery > 10;
 }
