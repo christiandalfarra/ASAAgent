@@ -5,14 +5,19 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon main/main.js"
+    "start": "nodemon main/index.js --number=S",
+    "start:S": "nodemon main/index.js --number=S",
+    "start:M": "nodemon main/index.js --number=M"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
     "@unitn-asa/deliveroo-js-client": "^2.0.3",
-    "jwt-decode": "^4.0.0"
+    "@unitn-asa/pddl-client": "^1.6.2",
+    "dotenv": "^17.0.1",
+    "jwt-decode": "^4.0.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

@@ -5,6 +5,7 @@ import {
   findNearestFrom,
   findAStar,
 } from "../main/utils.js";
+import { pddlPlans } from "../planning/pddlPlans.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../conf.js";
 
@@ -192,5 +193,6 @@ const plans = [];
 plans.push(PickUp);
 plans.push(AStarGoTo);
 plans.push(PutDown);
+plans.push(...pddlPlans);
 
 export { plans };

@@ -1,44 +1,65 @@
 ;; domain file: new_domain.pddl
 (define (domain default)
-    (:requirements :strips)
+    (:requirements :strips :typing)
+
+    (:types tile parcel)
+
     (:predicates
-        (down ?tile1 ?tile2)
-        (up ?tile1 ?tile2)
-        (left ?tile1 ?tile2)
-        (right ?tile1 ?tile2)
-        (at ?tile)
-        (parcel_at ?p ?tile)
-        (carrying ?p)
+        (down ?from ?to)
+        (up ?from ?to)
+        (left ?from ?to)
+        (right ?from ?to)
+
+        (at ?t - tile)
+        (parcel_at ?p - parcel ?t - tile)
+        (carrying ?p - parcel)
+
+        (blocked ?t - tile)
+        (occupied ?t - tile)
+        (delivery ?t - tile)
     )
 
     (:action move-down
-        :parameters (?tile1 ?tile2)
-        :precondition (and (at ?tile1) (down ?tile2 ?tile1))
-        :effect (and (at ?tile2) (not (at ?tile1)))
+        :parameters (?from ?to - tile)
+        :precondition (and (at ?from) (down ?to ?from)
+                           (not (blocked ?to))
+                           (not (occupied ?to)))
+        :effect (and (at ?to) (not (at ?from)))
     )
+
     (:action move-up
-        :parameters (?tile1 ?tile2)
-        :precondition (and (at ?tile1) (up ?tile2 ?tile1))
-        :effect (and (at ?tile2) (not (at ?tile1)))
+        :parameters (?from ?to - tile)
+        :precondition (and (at ?from) (up ?to ?from)
+                           (not (blocked ?to))
+                           (not (occupied ?to)))
+        :effect (and (at ?to) (not (at ?from)))
     )
+
     (:action move-left
-        :parameters (?tile1 ?tile2)
-        :precondition (and(at ?tile1) (left ?tile2 ?tile1))
-        :effect (and (at ?tile2) (not (at ?tile1)))
+        :parameters (?from ?to - tile)
+        :precondition (and (at ?from) (left ?to ?from)
+                           (not (blocked ?to))
+                           (not (occupied ?to)))
+        :effect (and (at ?to) (not (at ?from)))
     )
+
     (:action move-right
-        :parameters (?tile1 ?tile2)
-        :precondition (and (at ?tile1) (right ?tile2 ?tile1))
-        :effect (and (at ?tile2) (not (at ?tile1)))
+        :parameters (?from ?to - tile)
+        :precondition (and (at ?from) (right ?to ?from)
+                           (not (blocked ?to))
+                           (not (occupied ?to)))
+        :effect (and (at ?to) (not (at ?from)))
     )
+
     (:action pick-up
-        :parameters (?p ?tile)
-        :precondition (and (parcel_at ?p ?tile) (at ?tile) (not (carrying ?p)))
-        :effect (and (carrying ?p) (not(parcel_at ?p ?tile)))
+        :parameters (?p - parcel ?t - tile)
+        :precondition (and (at ?t) (parcel_at ?p ?t) (not (carrying ?p)))
+        :effect (and (carrying ?p) (not (parcel_at ?p ?t)))
     )
+
     (:action put-down
-        :parameters (?p ?tile)
-        :precondition (and (at ?tile)(carrying ?p))
-        :effect (and (parcel_at ?p ?tile) (not(carrying ?p)))
+        :parameters (?p - parcel ?t - tile)
+        :precondition (and (at ?t) (carrying ?p))
+        :effect (and (parcel_at ?p ?t) (not (carrying ?p)))
     )
 )
