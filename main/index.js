@@ -31,9 +31,9 @@ const agent_2 = {
 };
 
 const args = argsParser(process.argv);
-if (args["number"] === "S") {
+if (args["mode"] === "S") {
   spawnProcess(agent_1);
-} else if (args["number"] === "M") {
+} else if (args["mode"] === "M") {
   spawnProcesses(agent_1, agent_2);
   spawnProcesses(agent_2, agent_1);
 } else {

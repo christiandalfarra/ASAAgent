@@ -20,6 +20,8 @@ export class AgentData {
   mateId = "";
   mateIntention = null; // current intention of the mate agent
 
+  intentionReplace = null; // intention manager
+
   constructor() {
     // Initialize attributes
     this.name = "";
@@ -33,22 +35,8 @@ export class AgentData {
     this.currentIntention = null;
     this.mateId = "";
     this.mateIntention = null;
+    this.intentionReplace = null;
   }
-
-  /**
-   * Search for a parcel by its ID
-   * @param {string} id - The ID of the parcel to find
-   * @returns {Parcel | undefined} - The parcel with the given ID, if any
-   */
-  getParcelById(id) {
-    for (let parcel of this.parcels) {
-      if (id == parcel.id) {
-        return parcel;
-      }
-    }
-    return undefined;
-  }
-
   getPickedScore() {
     let score = 0;
     if (this.parcelsCarried.length == 0) return 0;

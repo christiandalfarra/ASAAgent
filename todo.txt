@@ -17,3 +17,17 @@ aggiungere la intention revision
 capire se è utile il planning (non è necessario per la challenge ma serve per il progetto finale)
     generate the problem from the belief set 
     declare and undecalre for specify the predicates to be or not be in the state
+
+
+Problemi avuti prima challenge:
+non era proprio intelligente a scegliere che parcel prendere, aggiunto una utlity sulle parcel
+rimaneva bloccato quando il primo path veniva bloccato e il secondo rimaneva incanstrato, risolto con un replan del path finche possibile
+non evitava gli avversari e aspettava ceh si spostassero, replan del path
+problemi nel decidere quando consegnare, abbiamo creato una reward function oppure se non vede piu niente va a consegnare
+in conclusione della challenge e vari test abbiamo capito anche confrontandoci quale sarebbero state le scelte migliori da fargli prendere
+
+problemi seconda challenge:
+in alcune mappe aveva un comportamento strano come uno che bloccava i delivery point e l'altro andava in giro ma senza che si aiutassero
+a volte si bloccavano a vicenda probabilmente lavoravano troppo indipendemente, devono comunicare per evitarsi tranne nel caso che non
+ci siano altri percorsi disponibili che si consegnano le cose (tunnel)
+per questioni di tempo alla challenge si muovevano indipendemente e si comunicavano le posizioni delle parcels e enemies senza comunicazione efficacie

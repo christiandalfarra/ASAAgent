@@ -5,6 +5,7 @@ export class EnvData {
   decade_frequency = 0.0; // frequency used for parcel reward decay
   movement_duration = 0; // time to move between tiles
   parcel_reward_variance = 0;
+  clock = 0;
 
   constructor() {
     // Initialize all properties

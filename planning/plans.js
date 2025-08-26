@@ -1,6 +1,5 @@
 import { agentData, mapData } from "../belief/belief.js";
 import {
-  findMovesAStar,
   findNearestDelivery,
   findNearestFrom,
   findAStar,
@@ -59,43 +58,38 @@ class AStarGoTo extends Plan {
     let utility = predicate.utility;
     let path = null;
     if (this.stopped) throw ["stopped"]; // if stopped then quit
-
-    if (mapData.utilityMap[goal.x][goal.y] === 0) {
-      if (utility == 2) {
-        goal = checkNewDelivery(goal);
-        if (!goal) {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    }
+    // if the path is not available return false
     if (!(path = findAStar(mapData.utilityMap, agentData.pos, goal))) {
       return false;
     }
     // execute the moves in the path
     while (!(agentData.pos.x === goal.x && agentData.pos.y === goal.y)) {
       let next_move = path.shift();
+      // if the next move is undefined redfeine the path
       if (next_move === undefined) {
         path = findAStar(mapData.utilityMap, agentData.pos, goal);
         next_move = path.shift();
       }
       let suc = await client.emitMove(next_move?.action);
+      // if the next move is not successful means that the agent is blocked
+      // so we need to find a new path
       if (!suc) {
         if (
           agentData.enemies.some(
             (enemy) => enemy.x === next_move?.x && enemy.y === next_move?.y
           )
         ) {
-          console.log("DEBUG: enemy is body blocking");
+          if(utility === 2 && findAStar){
+
+          }
+          console.log("DEBUG[plans.js astargo]: enemy is body blocking");
           path = findAStar(mapData.utilityMap, agentData.pos, goal);
           if (!path) {
-            console.log("DEBUG: no path found, stopping plan");
             return false; // if no path found then stop the plan
           }
         }
       }
-      // if im moving randomly every move check if there are better options
+      let valuableParcels;
       switch (utility) {
         // if there is something better to do then wlak randomly
         case 0:
@@ -119,7 +113,7 @@ class AStarGoTo extends Plan {
             return false;
           }
           //while delivering check if there are valuable parcels to pickup
-          let valuableParcels = agentData.parcels.filter((parcel) => {
+          valuableParcels = agentData.parcels.filter((parcel) => {
             return (
               parcel.carriedBy === null &&
               mapData.utilityMap[parcel.x][parcel.y] !== 0 &&
@@ -132,7 +126,7 @@ class AStarGoTo extends Plan {
               await this.subIntention({
                 type: "go_pick_up",
                 goal: parcel,
-                utility: 2,
+                utility: 1,
               });
             });
           }

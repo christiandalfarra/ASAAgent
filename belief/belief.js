@@ -12,29 +12,6 @@ export const envData = new EnvData();
 export const startTime = Date.now(); // start time of the game
 let flag = true; // flag to check if the map is set
 
-//Set first time the agent data or update
-client.onYou(({ id, name, x, y, score }) => {
-  // if first time, set the id and name
-  if (agentData.id == "" || agentData.id == "") {
-    agentData.id = id;
-    agentData.name = name;
-  }
-  agentData.pos.x = Math.round(x);
-  agentData.pos.y = Math.round(y);
-  agentData.score = Math.round(score);
-  if (flag) {
-    optionsLoop(); // update the options
-    flag = false; // set the flag to false
-  }
-  agentData.parcelsCarried.filter(
-    (parcel) =>
-      parcel.carriedBy === agentData.id &&
-      !mapData.deliverCoordinates.some(
-        (pos) => parcel.x === pos.x && parcel.x === pos.x
-      )
-  );
-});
-
 //set the map, delivery and spawning coordinates
 client.onMap((width, height, tiles) => {
   mapData.width = width;
@@ -52,6 +29,7 @@ client.onConfig((config) => {
   envData.parcel_reward_avg = config.PARCEL_REWARD_AVG;
   envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
   envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
+  envData.clock = config.CLOCK;
 
   agentData.mateId = teamAgentId; // set the team agent id
   console.log("DEBUG [belief.js] Team Agent ID:", agentData.mateId);
@@ -68,8 +46,32 @@ client.onConfig((config) => {
     config.MOVEMENT_DURATION / parcel_decading_interval;
   envData.parcel_reward_variance = config.PARCEL_REWARD_VARIANCE;
 });
+
+//Set first time the agent data or update
+client.onYou(({ id, name, x, y, score }) => {
+  // if first time, set the id and name
+  if (agentData.id == "" || agentData.id == "") {
+    agentData.id = id;
+    agentData.name = name;
+  }
+  agentData.pos.x = Math.round(x);
+  agentData.pos.y = Math.round(y);
+  agentData.score = Math.round(score);
+  /* if (flag) {
+   optionsLoop(); // update the options
+    flag = false; // set the flag to false
+  } */
+  agentData.parcelsCarried.filter(
+    (parcel) =>
+      parcel.carriedBy === agentData.id &&
+      !mapData.deliverCoordinates.some(
+        (pos) => parcel.x === pos.x && parcel.x === pos.x
+      )
+  );
+});
+
 // update the parcel data in the agent belief
-client.onParcelsSensing((parcels_sensed) => {
+client.onParcelsSensing(async (parcels_sensed) => {
   // update the parcels in the agent data
   let updateParcels = [];
   let timestamp = Date.now() - startTime;
@@ -86,22 +88,23 @@ client.onParcelsSensing((parcels_sensed) => {
       parcel.reward = Math.round(
         parcel.reward - Math.round(deltat * envData.decade_frequency) / 1000
       );
-      //if the reward is greater than 10, push it to the updateParcels array
-      if (parcel.reward > 1) {
+      //if the reward is greater than 5, push it to the updateParcels array
+      if (parcel.reward > 5) {
         updateParcels.push(parcel);
       }
-      /* if (agentData.mateId !== agentData.id) {
-        sayParcels(updateParcels); // communicate the parcels to the team agent
-      } */
     }
+  }
+  if (agentData.mateId !== agentData.id) {
+    await sayParcels(updateParcels); // communicate the parcels to the team agent
   }
   //reset to empty array and update the parcels
   agentData.parcels.splice(0, agentData.parcels.length);
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
+  // update the parcelsCarried array
   agentData.parcels.forEach((parcel) => {
     if (
       parcel.carriedBy === agentData.id &&
-      !agentData.parcelsCarried.some((p) => (parcel.id === p.id)) &&
+      !agentData.parcelsCarried.some((p) => parcel.id === p.id) &&
       !mapData.deliverCoordinates.some(
         (pos) => parcel.x === pos.x && parcel.x === pos.x
       )
@@ -115,29 +118,6 @@ client.onParcelsSensing((parcels_sensed) => {
 client.onAgentsSensing((agents_sensed) => {
   // reset to the original map
   let timestamp = Date.now() - startTime;
-  updateEnemies(agents_sensed, timestamp);
-});
-
-client.onMsg(async (id, name, msg, reply) => {
-  let fromId = id;
-  let from = name;
-  console.log("DEBUG [belief.js] Received message:", msg);
-  if (msg?.type == "say_intention") {
-    console.log("DEBUG [belief.js] Received message:", msg.data);
-  }
-  switch(msg.type){
-    case "say_parcels":
-      break;
-    case "say_agents":
-      break;
-    case "say_intention":
-      break;
-    default:
-      console.log("DEBUG [belief.js] Unknown message type:", msg.type);
-  }
-});
-
-function updateEnemies(agents_sensed, timestamp) {
   mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
   // push sensed agents with new timestamp
   for (let index in agents_sensed) {
@@ -162,4 +142,27 @@ function updateEnemies(agents_sensed, timestamp) {
   for (let a of agentData.enemies) {
     mapData.updateTileValue(a.x, a.y, 0);
   }
-}
+
+});
+
+client.onMsg(async (id, name, msg, reply) => {
+  let fromId = id;
+  let from = name;
+  console.log("DEBUG [belief.js] Received message:", msg);
+  switch (msg.type) {
+    case "say_parcels":
+      msg.data.forEach((parcel) => {
+        if (!agentData.parcels.some((p) => p.id === parcel.id)) {
+          agentData.parcels.push(parcel); // add the parcel to the agent belief
+        }
+      });
+      break;
+    case "say_agents":
+      break;
+    case "say_intention":
+      agentData.mateIntention = msg.data; // update the mate intention
+      break;
+    default:
+      console.log("DEBUG [belief.js] Unknown message type:", msg.type);
+  }
+});

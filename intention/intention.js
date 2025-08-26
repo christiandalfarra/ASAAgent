@@ -8,7 +8,7 @@ import { sayIntention } from "../coordination/coordination.js";
  * Represents a goal the agent is trying to achieve.
  * It handles the selection and execution of appropriate plans.
  */
-class Intention {
+export class Intention {
   // Currently active plan instance
   #current_plan; // The plan currently being executed
   #parent; // Reference to the parent object (typically another plan or agent)
@@ -140,7 +140,7 @@ class IntentionRevision {
     return this.#intentions_queue;
   }
 }
-class IntentionReplace extends IntentionRevision {
+export class IntentionReplace extends IntentionRevision {
   async push(predicate) {
     //console.log("[intention.js] Pushing new intention:", predicate);
 
@@ -157,5 +157,3 @@ class IntentionReplace extends IntentionRevision {
     this.intentions_queue.push(intention);
   }
 }
-
-export { Intention, IntentionReplace };

@@ -8,7 +8,6 @@ import {
   utilityDistanceAStar,
   pickUpUtility,
 } from "../main/utils.js";
-import { intentionReplace } from "../main/agent.js";
 
 /**
  * Function that evaluates and fills agent options for picking parcels
@@ -21,7 +20,7 @@ export async function optionsLoop() {
   // print the options
   console.log("DEBUG [options.js] Options:", agentData.options);
   agentData.best_option = agentData.options.shift(); // find the best option
-  await intentionReplace.push(agentData.best_option); // push the best option to intentionReplace
+  await agentData.intentionReplace.push(agentData.best_option); // push the best option to intentionReplace
 }
 
 // Populate the agentData.options array with possible options
