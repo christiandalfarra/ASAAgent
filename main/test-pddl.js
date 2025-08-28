@@ -1,65 +1,40 @@
-// main/test-pddl.js
 import { requestPlanutilsPlan } from '../planning/planutilsClient.js';
 
-console.log("🧪 Running Blocks World test...");
+console.log("🧪 Running Deliveroo PDDL advanced test...");
 
-const serverUrl = 'http://192.168.178.138:5001'; // Local planutils server
+const serverUrl = 'http://192.168.178.151:5001'; // Or your actual address
 
-// Classic blocks world domain
-const domain = `(define (domain blocks)
-  (:requirements :strips :typing)
-  (:types block)
-  (:predicates
-    (on ?x - block ?y - block)
-    (ontable ?x - block)
-    (clear ?x - block)
-    (handempty)
-    (holding ?x - block)
+const domain = await (await import('fs/promises')).readFile(
+  new URL('../planning/domain.pddl', import.meta.url),
+  'utf8'
+);
+
+const problem = `(define (problem deliveroo-advanced)
+  (:domain default)
+  (:objects
+    tile1 tile2 tile3 - tile
+    p1 p2 - parcel
   )
-
-  (:action pickup
-    :parameters (?x - block)
-    :precondition (and (clear ?x) (ontable ?x) (handempty))
-    :effect (and (holding ?x) (not (ontable ?x)) (not (clear ?x)) (not (handempty)))
-  )
-
-  (:action putdown
-    :parameters (?x - block)
-    :precondition (holding ?x)
-    :effect (and (ontable ?x) (clear ?x) (handempty) (not (holding ?x)))
-  )
-
-  (:action stack
-    :parameters (?x - block ?y - block)
-    :precondition (and (holding ?x) (clear ?y))
-    :effect (and (on ?x ?y) (clear ?x) (handempty) (not (holding ?x)) (not (clear ?y)))
-  )
-
-  (:action unstack
-    :parameters (?x - block ?y - block)
-    :precondition (and (on ?x ?y) (clear ?x) (handempty))
-    :effect (and (holding ?x) (clear ?y) (not (on ?x ?y)) (not (clear ?x)) (not (handempty)))
-  )
-)`;
-
-const problem = `(define (problem simple-stack)
-  (:domain blocks)
-  (:objects A B C - block)
   (:init
-    (ontable A) (ontable B) (ontable C)
-    (clear A) (clear B) (clear C)
-    (handempty)
+    (right tile1 tile2)
+    (left tile2 tile1)
+    (right tile2 tile3)
+    (left tile3 tile2)
+
+    (at tile1)
+    (parcel_at p1 tile1)
+    (parcel_at p2 tile1)
+    (delivery tile3)
   )
   (:goal (and
-    (on A B) (on B C)
+    (parcel_at p1 tile3)
+    (parcel_at p2 tile3)
   ))
 )`;
 
 (async () => {
   try {
     const result = await requestPlanutilsPlan({ domain, problem, serverUrl });
-
-    // Interpret the result to see if a plan was found
     const sasPlan = result?.result?.output?.sas_plan || "";
     const planFound = !!sasPlan && sasPlan.includes("(");
 

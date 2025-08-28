@@ -1,156 +1,57 @@
 import { Plan } from "./Plan.js";
 import { readFile } from "../main/utils.js";
 import { client } from "../conf.js";
-import { mapData, agentData, envData } from "../belief/belief.js";
+import { buildProblem } from "./pddlProblemBuilder.js";
 import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
 class PddlPickUp extends Plan {
-  static isApplicableTo(type) {
-    return type === "pddl_pick_up";
-  }
+  static isApplicableTo(type) { return type === "pddl_pick_up"; }
 
-  async execute(predicate) {
-    if (this.stopped) throw ["stopped"];
-
+  async execute(/* predicate */) {
     const domain = await readFile("planning/domain.pddl");
-    const problem = this.generateProblem();
+    const problem = buildProblem("pickup"); // uses agentData + mapData safely
 
-    const pddl = new PddlProblem("default", domain, problem);
-    const plan = await onlineSolver(pddl);
+    // Library usage: pass domain and problem strings
+    const plan = await onlineSolver(domain, problem);
+    if (!Array.isArray(plan) || plan.length === 0) return false;
 
     for (const step of plan) {
-      if (this.stopped) throw ["stopped"];
-      await executeStep(step);
+      if (this.stopped) return false;
+      const ok = await execStep(step);
+      if (!ok) return false;
     }
-
     return true;
-  }
-
-  generateProblem() {
-    const tiles = Object.values(mapData.tiles);
-    const parcels = Object.entries(envData.parcels);
-    const agentPos = agentData.myTile;
-
-    const objects = [
-      ...tiles.map((t) => `${t.name} - tile`),
-      ...parcels.map(([id]) => `${id} - parcel`),
-    ].join(" ");
-
-    const init = [
-      `(at ${agentPos})`,
-      ...tiles.flatMap((tile) =>
-        Object.entries(tile.adjacent).map(
-          ([dir, dest]) => `(${dir} ${tile.name} ${dest})`
-        )
-      ),
-      ...tiles
-        .filter((t) => t.blocked)
-        .map((t) => `(blocked ${t.name})`),
-      ...agentData.enemies.map((e) => `(occupied ${e.tile})`),
-      ...tiles
-        .filter((t) => mapData.deliverCoordinates.some((d) => d.x === t.x && d.y === t.y))
-        .map((t) => `(delivery ${t.name})`),
-      ...parcels.map(([id, p]) => `(parcel_at ${id} ${p.tile})`),
-    ].join("\n");
-
-    const goals = parcels
-      .map(([id, p]) => `(parcel_at ${id} ${p.delivery})`)
-      .join("\n");
-
-    return `(define (problem deliveroo)
-  (:domain default)
-  (:objects
-    ${objects}
-  )
-  (:init
-    ${init}
-  )
-  (:goal
-    (and
-      ${goals}
-    )
-  )
-)`;
   }
 }
 
 class PddlPutDown extends Plan {
-  static isApplicableTo(type) {
-    return type === "pddl_put_down";
-  }
+  static isApplicableTo(type) { return type === "pddl_put_down"; }
 
-  async execute(predicate) {
-    if (this.stopped) throw ["stopped"];
-
+  async execute(/* predicate */) {
     const domain = await readFile("planning/domain.pddl");
-    const problem = this.generateProblem();
+    const problem = buildProblem("putdown");
 
-    const pddl = new PddlProblem("default", domain, problem);
-    const plan = await onlineSolver(pddl);
+    const plan = await onlineSolver(domain, problem);
+    if (!Array.isArray(plan) || plan.length === 0) return false;
 
     for (const step of plan) {
-      if (this.stopped) throw ["stopped"];
-      await executeStep(step);
+      if (this.stopped) return false;
+      const ok = await execStep(step);
+      if (!ok) return false;
     }
-
     return true;
-  }
-
-  generateProblem() {
-    const tiles = Object.values(mapData.tiles);
-    const parcels = Object.entries(agentData.parcelsCarried);
-    const agentPos = agentData.myTile;
-
-    const objects = [
-      ...tiles.map((t) => `${t.name} - tile`),
-      ...parcels.map(([id]) => `${id} - parcel`),
-    ].join(" ");
-
-    const init = [
-      `(at ${agentPos})`,
-      ...tiles.flatMap((tile) =>
-        Object.entries(tile.adjacent).map(
-          ([dir, dest]) => `(${dir} ${tile.name} ${dest})`
-        )
-      ),
-      ...tiles
-        .filter((t) => t.blocked)
-        .map((t) => `(blocked ${t.name})`),
-      ...agentData.enemies.map((e) => `(occupied ${e.tile})`),
-      ...tiles
-        .filter((t) => mapData.deliverCoordinates.some((d) => d.x === t.x && d.y === t.y))
-        .map((t) => `(delivery ${t.name})`),
-      ...parcels.map(([id, p]) => `(carrying ${id})`),
-    ].join("\n");
-
-    const goals = parcels
-      .map(([id, p]) => `(parcel_at ${id} ${p.delivery})`)
-      .join("\n");
-
-    return `(define (problem deliveroo-putdown)
-  (:domain default)
-  (:objects
-    ${objects}
-  )
-  (:init
-    ${init}
-  )
-  (:goal
-    (and
-      ${goals}
-    )
-  )
-)`;
   }
 }
 
-async function executeStep(step) {
-  if (step.includes("move-right")) await client.emitMove("right");
-  else if (step.includes("move-left")) await client.emitMove("left");
-  else if (step.includes("move-up")) await client.emitMove("up");
-  else if (step.includes("move-down")) await client.emitMove("down");
-  else if (step.includes("pick-up")) await client.emitPickup();
-  else if (step.includes("put-down")) await client.emitPutdown();
+async function execStep(step) {
+  if (step.includes("move-right")) return client.emitMove("right");
+  if (step.includes("move-left"))  return client.emitMove("left");
+  if (step.includes("move-up"))    return client.emitMove("up");
+  if (step.includes("move-down"))  return client.emitMove("down");
+  if (step.includes("pick-up"))    return client.emitPickup();
+  if (step.includes("put-down"))   return client.emitPutdown();
+  // Unknown step: fail fast
+  return false;
 }
 
 export const pddlPlans = [PddlPickUp, PddlPutDown];
