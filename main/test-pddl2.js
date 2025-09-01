@@ -1,67 +1,185 @@
 // main/test-pddl.js
-// Static, no CLI args. It tests YOUR existing builder + domain against your Planutils endpoint.
-// It mocks a tiny world directly into mapData/agentData, so no Deliveroo connection is needed.
+// Static, no CLI args. Tests your PDDL domain+problem builder against a Planutils server.
+// It seeds beliefs (mapData/agentData) locally. No Deliveroo connection is required.
 
 import { readFile } from "fs/promises";
 import { requestPlanutilsPlan } from "../planning/planutilsClient.js";
 import { mapData, agentData } from "../belief/belief.js";
 import { buildProblem } from "../planning/pddlProblemBuilder.js";
 
-// ---------- static settings ----------
+// ---------- settings ----------
 const SERVER_URL = "http://192.168.178.151:5001"; // your Planutils server
-const TESTS = ["pickup", "putdown"]; // run both modes, sequentially
-// ------------------------------------
+// --------------------------------
 
-// Minimal mock world that matches your builder’s expectations
-function seedMockWorld() {
-  // 1x3 corridor: tile_0_0, tile_1_0, tile_2_0
-  mapData.width = 3;
-  mapData.height = 1;
+// Inline big map (0=wall, 1/3=walkable, 2=delivery)
+const bigMatrix = [
+  [0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,2,1,1,0,0,0],
+  [0,0,1,1,2,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,2,1,1,0,0,0],
+  [0,0,1,1,2,1,1,1,1,0,0,0,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1],
+  [0,0,1,1,0,0,1,1,1,0,0,0,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,1],
+  [0,0,1,1,0,0,1,1,1,1,0,0,1,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1],
+  [0,1,1,1,0,0,0,1,1,1,1,1,1,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1],
+  [1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1],
+  [1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1],
+  [1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1],
+  [0,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1],
+  [0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0],
+  [0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,1,1,0,0,0,0,0,1,1],
+  [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1],
+  [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,1,1,1],
+  [0,0,1,1,0,0,0,0,0,1,1,1,1,1,1,1,0,1,1,1,1,0,0,0,0,0,1,1,1,1],
+  [0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,0],
+  [0,0,1,1,0,0,0,0,0,1,1,0,0,0,1,1,1,1,1,0,0,0,0,0,1,1,1,1,0,0],
+  [0,0,1,1,0,0,0,0,0,1,1,0,0,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0],
+  [1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1],
+  [2,2,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1],
+  [1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1],
+  [1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,0,1,1,0,0,0,0,2,2],
+  [0,1,1,1,1,1,1,1,1,1,0,1,1,1,0,0,1,1,1,1,0,0,1,1,0,0,0,0,1,1],
+  [0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1],
+  [0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1]
+];
 
-  // map[x][y] with 0=wall, 1/2/3 walkable (you use 2 for delivery)
-  mapData.map = [
-    [1], // x=0,y=0 walkable
-    [1], // x=1,y=0 walkable
-    [2], // x=2,y=0 delivery
-  ];
+// --------- world seeding from matrix ---------
+function loadMatrixAsWorld(matrix) {
+  mapData.height = matrix.length;
+  mapData.width = matrix[0].length;
 
-  // utilityMap mirrors map by default
+  // Transpose into map[x][y] as required by your codebase
+  mapData.map = Array.from({ length: mapData.width }, (_, x) =>
+    Array.from({ length: mapData.height }, (_, y) => matrix[y][x])
+  );
   mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
 
-  // delivery tile set
-  mapData.deliverCoordinates = [{ x: 2, y: 0 }];
-
-  // agent at tile_0_0
-  agentData.pos = { x: 0, y: 0 };
-
-  // visible ground parcels for pickup test
-  agentData.parcels = [
-    { id: "p1", x: 0, y: 0, carriedBy: null, reward: 10, timestamp: 0 },
-    { id: "p2", x: 1, y: 0, carriedBy: null, reward: 10, timestamp: 0 },
-  ];
-
-  // carried parcels for putdown test (filled later)
-  agentData.parcelsCarried = [];
-  agentData.enemies = []; // none
+  // Extract delivery tiles
+  mapData.deliverCoordinates = [];
+  for (let y = 0; y < mapData.height; y++) {
+    for (let x = 0; x < mapData.width; x++) {
+      if (mapData.map[x][y] === 2) mapData.deliverCoordinates.push({ x, y });
+    }
+  }
 }
 
-async function run(mode) {
-  console.log(`\n🧪 PDDL test: ${mode.toUpperCase()}`);
+// Helpers over current map
+function isWalkable(x, y) {
+  if (x < 0 || y < 0 || x >= mapData.width || y >= mapData.height) return false;
+  const v = mapData.map[x][y];
+  return v === 1 || v === 2 || v === 3;
+}
+function listWalkables() {
+  const out = [];
+  for (let y = 0; y < mapData.height; y++) {
+    for (let x = 0; x < mapData.width; x++) {
+      if (isWalkable(x, y)) out.push({ x, y });
+    }
+  }
+  return out;
+}
 
-  const domain = await readFile(new URL("../planning/domain.pddl", import.meta.url), "utf8");
+// --------- scenarios ----------
+function scenarioEasy() {
+  const walkables = listWalkables();
+  if (walkables.length === 0) throw new Error("No walkable tiles in map.");
 
-  // Adjust mocked beliefs per mode
-  if (mode === "pickup") {
-    // already seeded above
-  } else if (mode === "putdown") {
-    // simulate carrying two parcels; no ground parcels
-    agentData.parcels = [];
-    agentData.parcelsCarried = [
-      { id: "p1", x: 0, y: 0, reward: 10 },
-      { id: "p2", x: 0, y: 0, reward: 10 },
-    ];
+  // Agent at first walkable
+  const a0 = walkables[0];
+  agentData.pos = { x: a0.x, y: a0.y };
+
+  // Two ground parcels on nearby walkables (fallbacks if not enough)
+  const pA = walkables[1] ?? a0;
+  const pB = walkables[2] ?? a0;
+
+  agentData.parcels = [
+    { id: "p1", x: pA.x, y: pA.y, carriedBy: null, reward: 15, timestamp: 0 },
+    { id: "p2", x: pB.x, y: pB.y, carriedBy: null, reward: 12, timestamp: 0 }
+  ];
+  agentData.parcelsCarried = [];
+  agentData.enemies = [];
+}
+
+function scenarioHard() {
+  const walkables = listWalkables();
+  if (walkables.length < 4) throw new Error("Not enough walkable tiles for hard scenario.");
+
+  // Agent at a distant walkable (end of list)
+  const a0 = walkables[walkables.length - 1];
+  agentData.pos = { x: a0.x, y: a0.y };
+
+  // Two carried parcels to force delivery planning
+  agentData.parcelsCarried = [
+    { id: "c1", x: a0.x, y: a0.y, reward: 20 },
+    { id: "c2", x: a0.x, y: a0.y, reward: 18 }
+  ];
+
+  // Three ground parcels spread across the map
+  const i1 = Math.floor(walkables.length / 6);
+  const i2 = Math.floor(walkables.length / 2);
+  const i3 = Math.floor((5 * walkables.length) / 6);
+
+  const g1 = walkables[i1];
+  const g2 = walkables[i2];
+  const g3 = walkables[i3];
+
+  agentData.parcels = [
+    { id: "g1", x: g1.x, y: g1.y, carriedBy: null, reward: 22, timestamp: 0 },
+    { id: "g2", x: g2.x, y: g2.y, carriedBy: null, reward: 16, timestamp: 0 },
+    { id: "g3", x: g3.x, y: g3.y, carriedBy: null, reward: 25, timestamp: 0 }
+  ];
+
+  agentData.enemies = []; // PDDL domain ignores enemies
+}
+
+// --------- helpers for pickup→deliver in one plan ---------
+function replaceGoal(problemStr, goalExpr) {
+  // Replace the entire (:goal ... ) block up to the final ')'
+  return problemStr.replace(
+    /\(:goal[\s\S]*?\)\s*\)\s*$/m,
+    `(:goal\n    ${goalExpr}\n  )\n)`
+  );
+}
+
+async function runPickupThenDeliver(parcelId, label = `PICKUP→DELIVER ${parcelId}`) {
+  console.log(`\n🧪 PDDL test: ${label}`);
+
+  const existsOnGround = (agentData.parcels || []).some(
+    p => p.id === parcelId && !p.carriedBy
+  );
+  if (!existsOnGround) {
+    throw new Error(`Parcel ${parcelId} not found on ground in agentData.parcels`);
   }
 
+  const domain = await readFile(new URL("../planning/domain.pddl", import.meta.url), "utf8");
+  const pickupProblem = buildProblem("pickup"); // objects/init with parcel on ground
+  const problem = replaceGoal(pickupProblem, `(delivered ${parcelId})`);
+
+  console.log("\n----- PROBLEM (pickup→deliver) -----\n" + problem);
+
+  const result = await requestPlanutilsPlan({ domain, problem, serverUrl: SERVER_URL });
+  const sasPlan = result?.result?.output?.sas_plan || "";
+  const steps = sasPlan
+    .split("\n")
+    .map(s => s.trim())
+    .filter(s => s.startsWith("("));
+
+  if (steps.length) {
+    console.log("\n✅ PLAN FOUND:");
+    steps.forEach((s, i) => console.log(`${i + 1}. ${s}`));
+  } else {
+    console.log("\n❌ NO PLAN. Raw result follows:");
+    console.dir(result, { depth: null });
+  }
+}
+
+// --------- generic planner driver ---------
+async function run(mode, label) {
+  console.log(`\n🧪 PDDL test: ${label ?? mode.toUpperCase()}`);
+
+  const domain = await readFile(new URL("../planning/domain.pddl", import.meta.url), "utf8");
   const problem = buildProblem(mode);
 
   console.log("\n----- PROBLEM -----\n" + problem);
@@ -82,10 +200,24 @@ async function run(mode) {
   }
 }
 
+// --------- main ---------
 (async () => {
-  seedMockWorld();
-  for (const mode of TESTS) {
-    await run(mode);
-  }
+  // Load big map
+  loadMatrixAsWorld(bigMatrix);
+
+  // Scenario A: easy pickup on the large map
+  scenarioEasy();
+  await run("pickup", "EASY / PICKUP");
+
+  // Pickup→Deliver for a specific parcel in the same problem
+  await runPickupThenDeliver("p1", "EASY / PICKUP→DELIVER p1");
+
+  // Scenario B: deliver carried parcels across the map
+  scenarioHard();
+  await run("putdown", "HARD / PUTDOWN");
+
+  // Optional: also test pickup on hard
+  await run("pickup", "HARD / PICKUP");
+
   console.log("\nDone.");
 })();

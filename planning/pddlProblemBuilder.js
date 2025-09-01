@@ -2,20 +2,16 @@
 import { mapData, agentData } from "../belief/belief.js";
 
 /**
- * Build a minimal PDDL problem snapshot from your current beliefs.
- * - Tiles: tile_X_Y for every in-bounds cell
- * - Adjacency: up/down/left/right with the SAME convention used by your A*:
- *   up => y+1, down => y-1, left => x-1, right => x+1
- * - Blocked: map value 0
- * - Occupied: enemy tiles
- * - Delivery: from mapData.deliverCoordinates
- * - Parcels:
- *    * mode === "pickup": use agentData.parcels as lying on the ground
- *    * mode === "putdown": use agentData.parcelsCarried as carried
+ * Build a PDDL problem consistent with domain "deliveroo-bdi".
+ * Adjacency facts use (pred FROM TO) with:
+ *   up:    (x, y) -> (x, y+1)
+ *   down:  (x, y) -> (x, y-1)
+ *   left:  (x, y) -> (x-1, y)
+ *   right: (x, y) -> (x+1, y)
+ * We do NOT emit unsupported predicates like (blocked) or (occupied).
  *
- * @param {"pickup"|"putdown"} mode
- * @param {Object} cfg optional filters, e.g. { onlyParcelIds: Set<string> }
- * @returns {string} a full PDDL problem string
+ * mode = "pickup": goal is to be (carrying <any ground parcel>).
+ * mode = "putdown": goal is to have (delivered <each carried parcel>).
  */
 export function buildProblem(mode = "pickup", cfg = {}) {
   const width = mapData.width;
@@ -35,7 +31,6 @@ export function buildProblem(mode = "pickup", cfg = {}) {
   let groundParcels = [];
   let carriedParcels = [];
   if (mode === "pickup") {
-    // parcels seen and not carried by anyone
     groundParcels = (agentData.parcels || []).filter(p => !p.carriedBy);
   } else {
     carriedParcels = agentData.parcelsCarried || [];
@@ -52,71 +47,53 @@ export function buildProblem(mode = "pickup", cfg = {}) {
   // Init: agent position
   const atFacts = [`(at ${tileName(agentData.pos.x, agentData.pos.y)})`];
 
-  // Init: adjacency with your current convention
+  // Init: adjacency (FROM -> TO)
   const adjFacts = [];
   for (let x = 0; x < width; x++) {
     for (let y = 0; y < height; y++) {
       if (!isWalkable(x, y)) continue;
       const here = tileName(x, y);
-      const maybe = (dx, dy, pred) => {
-        const nx = x + dx, ny = y + dy;
-        if (isWalkable(nx, ny)) adjFacts.push(`(${pred} ${tileName(nx, ny)} ${here})`);
+      const addIf = (nx, ny, pred) => {
+        if (isWalkable(nx, ny)) adjFacts.push(`(${pred} ${here} ${tileName(nx, ny)})`);
       };
-      // IMPORTANT: matches your domain preconditions (down ?to ?from) etc.
-      maybe( 0, -1, "down");   // target is y-1, from is current
-      maybe( 0,  1, "up");     // target is y+1
-      maybe(-1,  0, "left");   // target is x-1
-      maybe( 1,  0, "right");  // target is x+1
+      addIf(x, y + 1, "up");
+      addIf(x, y - 1, "down");
+      addIf(x - 1, y, "left");
+      addIf(x + 1, y, "right");
     }
   }
 
-  // Init: blocked tiles (walls)
-  const blocked = [];
-  for (let x = 0; x < width; x++)
-    for (let y = 0; y < height; y++)
-      if (mapData.map[x][y] === 0) blocked.push(`(blocked ${tileName(x, y)})`);
-
-  // Init: occupied tiles (enemies)
-  const occupied = (agentData.enemies || []).map(e => `(occupied ${tileName(Math.round(e.x), Math.round(e.y))})`);
-
-  // Init: deliveries
+  // Init: delivery tiles
   const deliveries = (mapData.deliverCoordinates || []).map(d => `(delivery ${tileName(d.x, d.y)})`);
 
-  // Init: parcels
+  // Init: parcels on ground / carried
   const parcelFacts = [
     ...groundParcels.map(p => `(parcel_at ${p.id} ${tileName(p.x, p.y)})`),
     ...carriedParcels.map(p => `(carrying ${p.id})`),
   ];
 
+  // (Optional) mark current tile explored; domain will add explored on moves
+  const exploredFacts = [`(explored ${tileName(agentData.pos.x, agentData.pos.y)})`];
+
   // Goal
   let goal;
   if (mode === "pickup") {
-    // default: pick up ANY one of the ground parcels
     if (groundParcels.length === 0) goal = "(and)"; // trivial
     else if (groundParcels.length === 1) goal = `(carrying ${groundParcels[0].id})`;
     else goal = `(or ${groundParcels.map(p => `(carrying ${p.id})`).join(" ")})`;
   } else {
-    // put down all carried parcels on any delivery tile
-    // Simple version: at least one carried parcel is put down on ANY delivery tile.
-    // If you want all, replace with (and ...) over specific tiles.
+    // Deliver all currently carried parcels
     if (carriedParcels.length === 0) goal = "(and)";
-    else goal = `(or ${carriedParcels.map(p => `(parcel_at ${p.id} ${nearestDeliveryTileName(p)})`).join(" ")})`;
-  }
-
-  function nearestDeliveryTileName(p) {
-    // Pick the first delivery as a stable target; your A* already picks nearest.
-    const d = mapData.deliverCoordinates?.[0];
-    if (!d) return tileName(agentData.pos.x, agentData.pos.y);
-    return tileName(d.x, d.y);
+    else goal = `(and ${carriedParcels.map(p => `(delivered ${p.id})`).join(" ")})`;
   }
 
   const objects = [...tileObjs, ...parcelObjs].join("\n    ");
   const init = [
-    ...atFacts, ...adjFacts, ...blocked, ...occupied, ...deliveries, ...parcelFacts
+    ...atFacts, ...adjFacts, ...deliveries, ...parcelFacts, ...exploredFacts
   ].join("\n    ");
 
   return `(define (problem deliveroo-problem)
-  (:domain default)
+  (:domain deliveroo-bdi)
   (:objects
     ${objects}
   )
