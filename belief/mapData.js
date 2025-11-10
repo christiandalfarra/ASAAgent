@@ -29,6 +29,8 @@ export class MapData {
     this.spawningCoordinates = tiles
       .filter((t) => t.type == 1)
       .map((t) => ({ x: t.x, y: t.y }));
+    console.log("DEBUG[mapData.js]: spawnCoordinates", this.spawningCoordinates);
+    
   }
 
   /**

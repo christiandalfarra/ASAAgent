@@ -16,7 +16,7 @@ aggiungere la intention revision
 
 capire se è utile il planning (non è necessario per la challenge ma serve per il progetto finale)
     generate the problem from the belief set 
-    declare and undecalre for specify the predicates to be or not be in the state
+    declare and undeclare for specify the predicates to be or not be in the state
 
 
 Problemi avuti prima challenge:

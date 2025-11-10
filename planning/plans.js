@@ -3,12 +3,10 @@ import {
   findNearestDelivery,
   findNearestFrom,
   findAStar,
-  utilityDistanceAStar,
 } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../conf.js";
-
-import { optionsGen, optionsLoop } from "../intention/options.js";
+import { optionsLoop } from "../intention/options.js";
 
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
@@ -48,109 +46,101 @@ class Plan {
     return this.#stopped;
   }
 }
-class AStarGoTo extends Plan {
+class GoTo extends Plan {
   static isApplicableTo(type) {
     return type === "go_to";
   }
 
   async execute(predicate) {
+    if (this.stopped) throw ["stopped"];
+
     let goal = predicate.goal;
-    let utility = predicate.utility;
-    let path = null;
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-    // if the path is not available return false
-    if (!(path = findAStar(mapData.utilityMap, agentData.pos, goal))) {
+    const maxMoveRetries = 3;
+    const atGoal = () =>
+      agentData.pos.x === goal.x && agentData.pos.y === goal.y;
+
+    let path = findAStar(mapData.utilityMap, agentData.pos, goal);
+    if (!path || path.length === 0) {
       return false;
     }
-    // execute the moves in the path
-    while (!(agentData.pos.x === goal.x && agentData.pos.y === goal.y)) {
-      let next_move = path.shift();
-      // if the next move is undefined redfeine the path
-      if (next_move === undefined) {
-        path = findAStar(mapData.utilityMap, agentData.pos, goal);
-        next_move = path.shift();
-      }
-      let suc = await client.emitMove(next_move?.action);
-      // if the next move is not successful means that the agent is blocked
-      // so we need to find a new path
-      if (!suc) {
-        if (
-          agentData.enemies.some(
-            (enemy) => enemy.x === next_move?.x && enemy.y === next_move?.y
-          )
-        ) {
-          if(utility === 2 && findAStar){
+    let moveRetries = 0;
 
-          }
-          console.log("DEBUG[plans.js astargo]: enemy is body blocking");
-          path = findAStar(mapData.utilityMap, agentData.pos, goal);
-          if (!path) {
-            return false; // if no path found then stop the plan
-          }
+    while (!atGoal()) {
+      if (this.stopped) throw ["stopped"];
+
+      if (!path || path.length === 0) {
+        path = findAStar(mapData.utilityMap, agentData.pos, goal);
+        if (!path || path.length === 0) {
+          return false;
         }
       }
-      let valuableParcels;
-      switch (utility) {
-        // if there is something better to do then wlak randomly
-        case 0:
-          optionsGen();
-          if (
-            agentData.options.some((option) => option.type === "go_pick_up")
-          ) {
-            return false; // if there are better options then stop the plan
-          }
-          break;
-        case 1:
-          // if the tile that i want to reach for the pickup is not free go for something else
-          if (mapData.utilityMap[goal?.x][goal?.y] === 0) {
-            console.log("DEBUG: goal tile is occupied");
-            return false; // if the goal tile is occupied then stop the plan
-          }
-          break;
-        case 2:
-          // if i have no parcels to deliver then stop the plan
-          if (agentData.parcelsCarried.length == 0) {
-            return false;
-          }
-          //while delivering check if there are valuable parcels to pickup
-          valuableParcels = agentData.parcels.filter((parcel) => {
-            return (
-              parcel.carriedBy === null &&
-              mapData.utilityMap[parcel.x][parcel.y] !== 0 &&
-              parcel.reward > 10 &&
-              utilityDistanceAStar(agentData.pos, parcel) < 3
-            );
-          });
-          if (valuableParcels.length > 0) {
-            valuableParcels.forEach(async (parcel) => {
-              await this.subIntention({
-                type: "go_pick_up",
-                goal: parcel,
-                utility: 1,
-              });
-            });
-          }
-          // if the tile for the delivery is not free then check for a new delivery
-          if (mapData.utilityMap[goal.x][goal.y] === 0) {
-            console.log("DEBUG: delivery tile is occupied");
-            goal = checkNewDelivery(goal);
-            path = findAStar(mapData.utilityMap, agentData.pos, goal);
-            if (!goal || !path) {
-              return false;
+
+      const nextMove = path[0];
+      if (!nextMove) {
+        path.shift();
+        continue;
+      }
+
+      const success = await client.emitMove(nextMove.action);
+      if (!success) {
+        console.log("[plans.js] Move failed", nextMove.action);
+        moveRetries += 1;
+        const blockedX = nextMove.x;
+        const blockedY = nextMove.y;
+        const blockedByEnemy = agentData.enemies.some(
+          (enemy) => enemy.x === blockedX && enemy.y === blockedY
+        );
+        const blockedByMate =
+          agentData.mateId &&
+          agentData.mateId !== agentData.id &&
+          agentData.matePosition &&
+          agentData.matePosition.x === blockedX &&
+          agentData.matePosition.y === blockedY;
+        if (blockedByEnemy || blockedByMate) {
+          const blocker = blockedByEnemy ? "enemy agent" : "mate";
+          console.log(
+            `[plans.js] Move blocked by ${blocker} at (${blockedX}, ${blockedY}) 
+            solving the intention ${agentData.currentIntention.predicate.type}`
+          );
+          console.log(`[plans.js] tile blocked value: ${mapData.utilityMap[blockedY][blockedX]}`);
+          if (agentData.currentIntention?.predicate?.type === "go_put_down") {
+            // TODO if i am delivering and my mate is blocking me, use the plan
+            const newGoal = checkNewDelivery(goal);
+            if (newGoal) {
+              console.log(
+                `[plans.js] Switching delivery goal to (${newGoal.x}, ${newGoal.y})`
+              );
+              goal = predicate.goal = newGoal;
+              path = findAStar(mapData.utilityMap, agentData.pos, goal);
+              moveRetries = 0;
+              if (path && path.length > 0) {
+                continue;
+              }
             }
           }
-          break;
+        }
+        if (moveRetries < maxMoveRetries) {
+          continue;
+        }
+        path = findAStar(mapData.utilityMap, agentData.pos, goal);
+        if (!path || path.length === 0) {
+          return false;
+        }
+        continue;
       }
+      path.shift();
+      moveRetries = 0;
     }
+
     return true;
   }
 }
 function checkNewDelivery(goal) {
   return findNearestFrom(
     agentData.pos,
-    mapData.deliverCoordinates.filter((coord) => {
-      coord.x !== goal.x && coord.y !== goal.y;
-    })
+    mapData.deliverCoordinates.filter(
+      (coord) => coord.x !== goal.x || coord.y !== goal.y
+    )
   );
 }
 /**
@@ -201,20 +191,11 @@ class PutDown extends Plan {
     }
   }
 }
-class PutDownTeam extends Plan {
-  static isApplicableTo(type) {
-    return type == "go_put_down_team";
-  }
-  // goal : {x,y} is the position where the two agents have to meet in order to do the put down for one the pickup for the other
-  // a1pos : {x,y} is the position of the first agent nearest to the goal
-  // a2pos : {x,y} is the position of the second agent nearest to the gola that is not the one of the first agent
-  async execute(predicate) {}
-}
 
 const plans = [];
 
 plans.push(PickUp);
-plans.push(AStarGoTo);
+plans.push(GoTo);
 plans.push(PutDown);
 
 export { plans };

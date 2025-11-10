@@ -14,31 +14,43 @@ import {
  * Intended to be called in a loop to keep updating choices
  */
 export async function optionsLoop() {
-  //generateOptions(); // generate options based on current state
-  optionsGen(); // generate options based on current state
+  // Evita crash se la mappa non è pronta
+  if (!mapData.map || mapData.map.length === 0) return;
+
+  optionsGen();
   optionsRevision();
-  // print the options
-  console.log("DEBUG [options.js] Options:", agentData.options);
-  agentData.best_option = agentData.options.shift(); // find the best option
-  await agentData.intentionReplace.push(agentData.best_option); // push the best option to intentionReplace
+
+  if (!agentData.options || agentData.options.length === 0) return;
+
+  agentData.best_option = agentData.options.shift();
+  if (!agentData.best_option) return;
+
+  await agentData.myIntentions.push(agentData.best_option);
 }
 
 // Populate the agentData.options array with possible options
 export function optionsGen() {
-  let viableParcels = generatePickUps(); // generate pickup options
-  if (mapData.utilityMap[agentData.pos.x][agentData.pos.y] !== 2 &&(
+  agentData.options = [];
+  let viableParcels = generatePickUps();
+
+  if (
     (agentData.parcelsCarried.length > 0 &&
       viableParcels.length === 0 &&
       checkDelivery()) ||
-    agentData.getPickedScore() > 1.5 * envData.parcel_reward_avg)
+    agentData.getPickedScore() > 1.5 * envData.parcel_reward_avg
   ) {
-    generateDeliveries(); // generate delivery options if carrying parcels or no viable pickups
+    generateDeliveries();
   }
-  if (agentData.options.length === 0) {
-    generateRandomWalk(); // if no options available, generate a random walk
+  if (
+    agentData.options.length === 0 &&
+    agentData.myIntentions.intentions_queue.length === 0
+  ) {
+    generateRandomWalk();
   }
 }
 function generateRandomWalk() {
+  if (!mapData.spawningCoordinates || mapData.spawningCoordinates.length === 0)
+    return;
   const randomIndex = Math.floor(
     Math.random() * mapData.spawningCoordinates.length
   );
@@ -50,20 +62,66 @@ function generateRandomWalk() {
   });
 }
 function generatePickUps() {
-  let viableParcels = agentData.parcels?.filter((parcel) => {
-    if (parcel.carriedBy || mapData?.utilityMap[parcel?.x][parcel?.y] == 0)
-      return false;
-    const distance = utilityDistanceAStar(agentData.pos, parcel);
-    const rewardDrop = envData.decade_frequency * distance;
-    return parcel.reward - Math.round(rewardDrop) > 0; // ignore parcel if it will decay too much before pickup
-  });
+  const delivering =
+    agentData.currentIntention?.predicate.type === "go_put_down";
+
+  const canPickWhileDelivering = (() => {
+    if (!delivering) {
+      return () => true;
+    }
+    const deliveryGoal =
+      agentData.currentIntention?.predicate.goal ??
+      findNearestDelivery(agentData.pos);
+    if (!deliveryGoal) {
+      return () => true;
+    }
+    const deliveryDistance = utilityDistanceAStar(agentData.pos, deliveryGoal);
+    if (deliveryDistance == null) {
+      return () => true;
+    }
+
+    return (parcel, distanceToParcel) => {
+      if (distanceToParcel == null) return false;
+      const parcelToDelivery = utilityDistanceAStar(parcel, deliveryGoal);
+      if (parcelToDelivery == null) return false;
+
+      const routeWithPickup = distanceToParcel + parcelToDelivery;
+      const detour = Math.max(routeWithPickup - deliveryDistance, 0);
+      if (detour === 0) return true;
+
+      const carriedCount = Math.max(agentData.parcelsCarried.length, 1);
+      const delayCost = detour * envData.decade_frequency * carriedCount;
+      const parcelNetReward =
+        parcel.reward - envData.decade_frequency * routeWithPickup;
+      return parcelNetReward > delayCost;
+    };
+  })();
+
+  let viableParcels =
+    agentData.parcels?.filter((parcel) => {
+      if (!parcel) return false;
+      if (
+        parcel.carriedBy ||
+        mapData?.utilityMap?.[parcel?.x]?.[parcel?.y] == 0
+      )
+        return false;
+      const distance = utilityDistanceAStar(agentData.pos, parcel);
+      if (distance == null) return false;
+      if (delivering && !canPickWhileDelivering(parcel, distance)) {
+        return false;
+      }
+      const rewardDrop = envData.decade_frequency * distance;
+      return parcel.reward - Math.round(rewardDrop) > 0;
+    }) ?? [];
+
   viableParcels.sort((a, b) => {
-    const distA = utilityDistanceAStar(agentData.pos, a);
-    const distB = utilityDistanceAStar(agentData.pos, b);
+    const distA = utilityDistanceAStar(agentData.pos, a) ?? Infinity;
+    const distB = utilityDistanceAStar(agentData.pos, b) ?? Infinity;
     const rewardA = a.reward - Math.round(envData.decade_frequency * distA);
     const rewardB = b.reward - Math.round(envData.decade_frequency * distB);
-    return rewardB - rewardA; // sort by reward
+    return rewardB - rewardA;
   });
+
   viableParcels.forEach((parcel) => {
     if (
       !agentData.options.some(
@@ -73,38 +131,36 @@ function generatePickUps() {
           option.goal.y === parcel.y
       )
     ) {
-      let utility = pickUpUtility(parcel);
-      if (utility > 10) {
+      const utility = pickUpUtility(parcel);
+      if (utility > 20) {
         agentData.options.push({
           type: "go_pick_up",
           goal: parcel,
-          utility: pickUpUtility(parcel),
+          utility,
         });
       }
     }
   });
-  return viableParcels; // return the viable parcels for further processing if needed
+  return viableParcels;
 }
 function generateDeliveries() {
-  let nearestDelivery = findNearestDelivery(agentData.pos);
+  const nearestDelivery = findNearestDelivery(agentData.pos);
+  if (!nearestDelivery) return;
+
   if (!agentData.options.some((option) => option.type == "go_put_down")) {
     agentData.options.push({
       type: "go_put_down",
       goal: nearestDelivery,
-      utility: 100,
+      utility: 1000,
     });
     agentData.best_option = {
       type: "go_put_down",
       goal: nearestDelivery,
-      utility: 100,
+      utility: 1000,
     };
-    agentData.options.filter((option) => {
-      option.type !== "go_to";
-    });
   }
 }
 export function optionsRevision() {
-  // re evaluate the utility score and resort the options
   agentData.options.forEach((option) => {
     if (option.type === "go_pick_up") {
       option.utility = pickUpUtility(option.goal);

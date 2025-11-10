@@ -31,6 +31,18 @@ export async function sayIntention(predicate) {
     data: predicate,
   });
 }
+export async function sayPositionToMate(){
+  await client.emitSay(agentData.mateId, {
+    type: "say_position",
+    data: agentData.pos,
+  });
+}
+export async function askForPutdown(){
+  await client.emitAsk(agentData.mateId, {
+    type: "ask_put_down",
+    data: {}
+  })
+}
 
 /**
  * ask message format/protocol:
@@ -42,6 +54,15 @@ export async function sayIntention(predicate) {
  * * }
  */
 export async function askPickUp(parcel) {
-  client.emitAsk(agentData.mateId, {});
+  await client.emitAsk(agentData.mateId, {
+    type: "ask_pick_up",
+    data: { parcel },
+  });
 }
-export async function askPutDown() {}
+
+export async function askPutDown() {
+  await client.emitAsk(agentData.mateId, {
+    type: "ask_put_down",
+    data: {},
+  });
+}

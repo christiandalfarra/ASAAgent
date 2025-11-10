@@ -2,50 +2,12 @@ import { AgentData } from "./agentData.js";
 import { MapData } from "./mapData.js";
 import { EnvData } from "./envData.js";
 import { client, teamAgentId } from "../conf.js";
-import { optionsLoop } from "../intention/options.js";
-import { convertToMatrix } from "../main/utils.js";
-import { sayParcels, sayAgents } from "../coordination/coordination.js";
+import { sayParcels, sayAgents, sayPositionToMate } from "../coordination/coordination.js";
 
 export const agentData = new AgentData();
 export const mapData = new MapData();
 export const envData = new EnvData();
 export const startTime = Date.now(); // start time of the game
-let flag = true; // flag to check if the map is set
-
-//set the map, delivery and spawning coordinates
-client.onMap((width, height, tiles) => {
-  mapData.width = width;
-  mapData.height = height;
-  mapData.map = convertToMatrix(width, height, tiles);
-  mapData.utilityMap = convertToMatrix(width, height, tiles);
-  mapData.setSpawnCoordinates(tiles);
-  mapData.setDeliverCoordinates(tiles);
-});
-
-// set other values of the map from the config
-client.onConfig((config) => {
-  agentData.parcels = [];
-  agentData.parcelsCarried = [];
-  envData.parcel_reward_avg = config.PARCEL_REWARD_AVG;
-  envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
-  envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
-  envData.clock = config.CLOCK;
-
-  agentData.mateId = teamAgentId; // set the team agent id
-  console.log("DEBUG [belief.js] Team Agent ID:", agentData.mateId);
-
-  let parcel_decading_interval = 0;
-  if (config.PARCEL_DECADING_INTERVAL == "infinite") {
-    parcel_decading_interval = Number.MAX_VALUE;
-  } else {
-    parcel_decading_interval =
-      config.PARCEL_DECADING_INTERVAL.slice(0, -1) * 1000;
-  }
-  envData.movement_duration = config.MOVEMENT_DURATION;
-  envData.decade_frequency =
-    config.MOVEMENT_DURATION / parcel_decading_interval;
-  envData.parcel_reward_variance = config.PARCEL_REWARD_VARIANCE;
-});
 
 //Set first time the agent data or update
 client.onYou(({ id, name, x, y, score }) => {
@@ -56,6 +18,7 @@ client.onYou(({ id, name, x, y, score }) => {
   }
   agentData.pos.x = Math.round(x);
   agentData.pos.y = Math.round(y);
+  if (agentData.mateId !== agentData.id) sayPositionToMate();
   agentData.score = Math.round(score);
   /* if (flag) {
    optionsLoop(); // update the options
@@ -121,6 +84,7 @@ client.onAgentsSensing((agents_sensed) => {
   mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
   // push sensed agents with new timestamp
   for (let index in agents_sensed) {
+    if (agents_sensed[index].id === teamAgentId) continue;
     let a = agents_sensed[index];
     // if i never seen it before, push it to the array
     if (!agentData.enemies.some((enemy) => enemy.id == a.id)) {
@@ -142,25 +106,34 @@ client.onAgentsSensing((agents_sensed) => {
   for (let a of agentData.enemies) {
     mapData.updateTileValue(a.x, a.y, 0);
   }
-
+  sayAgents(agentData.enemies); // communicate the agents to the team agent
 });
 
 client.onMsg(async (id, name, msg, reply) => {
-  let fromId = id;
-  let from = name;
-  console.log("DEBUG [belief.js] Received message:", msg);
+  let fromId, from = {id, name};
   switch (msg.type) {
     case "say_parcels":
       msg.data.forEach((parcel) => {
         if (!agentData.parcels.some((p) => p.id === parcel.id)) {
-          agentData.parcels.push(parcel); // add the parcel to the agent belief
+          agentData.parcels.push(parcel);
         }
       });
       break;
     case "say_agents":
+      msg.data.forEach((agent) => {
+        if (!agentData.enemies.some((a) => a.id === agent.id)) {
+          agentData.enemies.push(agent);
+          mapData.updateTileValue(agent.x, agent.y, 0);
+        }
+      });
+      break;
+    case "say_position":
+      agentData.matePosition = msg.data;
+      mapData.updateTileValue(msg.data.x, msg.data.y, 0);
       break;
     case "say_intention":
-      agentData.mateIntention = msg.data; // update the mate intention
+      agentData.mateIntention = msg.data;
+      console.log("DEBUG [belief.js] Mate intention:", agentData.mateIntention);
       break;
     default:
       console.log("DEBUG [belief.js] Unknown message type:", msg.type);

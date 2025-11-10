@@ -16,11 +16,15 @@ export class AgentData {
   // Perceived enemies
   enemies = [];
 
-  currentIntention = null; // current intention being pursued
-  mateId = "";
-  mateIntention = null; // current intention of the mate agent
+  myIntentions = null; // intention manager
 
-  intentionReplace = null; // intention manager
+  currentIntention = null; // current intention being pursued
+
+  mateId = "";
+  matePosition = {};
+  mateIntention = null; // current intention of the mate agent
+  coordination = false;
+  forcePutdown = false; // flag to force put down parcels
 
   constructor() {
     // Initialize attributes
@@ -35,7 +39,7 @@ export class AgentData {
     this.currentIntention = null;
     this.mateId = "";
     this.mateIntention = null;
-    this.intentionReplace = null;
+    this.myIntentions = null;
   }
   getPickedScore() {
     let score = 0;
