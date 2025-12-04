@@ -7,6 +7,7 @@ import {
   countCloseParcels,
   utilityDistanceAStar,
   pickUpUtility,
+  findAStar,
 } from "../main/utils.js";
 
 /**
@@ -23,6 +24,7 @@ export async function optionsLoop() {
   if (!agentData.options || agentData.options.length === 0) return;
 
   agentData.best_option = agentData.options.shift();
+  //console.log(`Best option: ${agentData.best_option.type} at (${agentData.best_option.goal.x}, ${agentData.best_option.goal.y}) with utility ${agentData.best_option.utility}`);
   if (!agentData.best_option) return;
 
   await agentData.myIntentions.push(agentData.best_option);
@@ -34,11 +36,11 @@ export function optionsGen() {
   let viableParcels = generatePickUps();
 
   if (
+    agentData.currentIntention?.predicate.type !== "go_put_down" &&
     (agentData.parcelsCarried.length > 0 &&
-      viableParcels.length === 0 &&
-      checkDelivery()) ||
-    agentData.getPickedScore() > 1.5 * envData.parcel_reward_avg
-  ) {
+      (viableParcels.length === 0 ||
+      checkDelivery()))
+    ) {
     generateDeliveries();
   }
   if (
@@ -55,6 +57,22 @@ function generateRandomWalk() {
     Math.random() * mapData.spawningCoordinates.length
   );
   const target = mapData.spawningCoordinates[randomIndex];
+  // if the target is not reachable, return
+  if (mapData.utilityMap[target.x][target.y] === 0) return;
+  if (agentData.mateId !== agentData.id) {
+    mapData.updateTileValue(
+      agentData.matePosition.x,
+      agentData.matePosition.y,
+      0
+    );
+    if (findAStar(mapData.utilityMap, agentData.pos, target) === null) return;
+    mapData.updateTileValue(
+      agentData.matePosition.x,
+      agentData.matePosition.y,
+      mapData.map[agentData.matePosition.x][agentData.matePosition.y].type
+    );
+  }
+  // add the random
   agentData.options.push({
     type: "go_to",
     goal: { x: target.x, y: target.y },
@@ -114,13 +132,13 @@ function generatePickUps() {
       return parcel.reward - Math.round(rewardDrop) > 0;
     }) ?? [];
 
-  viableParcels.sort((a, b) => {
+/*   viableParcels.sort((a, b) => {
     const distA = utilityDistanceAStar(agentData.pos, a) ?? Infinity;
     const distB = utilityDistanceAStar(agentData.pos, b) ?? Infinity;
     const rewardA = a.reward - Math.round(envData.decade_frequency * distA);
     const rewardB = b.reward - Math.round(envData.decade_frequency * distB);
     return rewardB - rewardA;
-  });
+  }); */
 
   viableParcels.forEach((parcel) => {
     if (
@@ -179,5 +197,5 @@ function checkDelivery() {
       parcel.reward - distance * envData.decade_frequency
     );
   });
-  return scoreAtDelivery > 10;
+  return scoreAtDelivery > 1.5 * envData.parcel_reward_avg;
 }

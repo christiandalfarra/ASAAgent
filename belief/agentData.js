@@ -24,7 +24,6 @@ export class AgentData {
   matePosition = {};
   mateIntention = null; // current intention of the mate agent
   coordination = false;
-  forcePutdown = false; // flag to force put down parcels
 
   constructor() {
     // Initialize attributes
@@ -39,6 +38,7 @@ export class AgentData {
     this.currentIntention = null;
     this.mateId = "";
     this.mateIntention = null;
+    this.matePosition = {x:0, y:0};
     this.myIntentions = null;
   }
   getPickedScore() {

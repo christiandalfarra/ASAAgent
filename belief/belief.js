@@ -2,7 +2,12 @@ import { AgentData } from "./agentData.js";
 import { MapData } from "./mapData.js";
 import { EnvData } from "./envData.js";
 import { client, teamAgentId } from "../conf.js";
-import { sayParcels, sayAgents, sayPositionToMate } from "../coordination/coordination.js";
+import { Intention } from "../intention/intention.js";
+import {
+  sayParcels,
+  sayAgents,
+  sayPositionToMate,
+} from "../coordination/coordination.js";
 
 export const agentData = new AgentData();
 export const mapData = new MapData();
@@ -64,7 +69,7 @@ client.onParcelsSensing(async (parcels_sensed) => {
   agentData.parcels.splice(0, agentData.parcels.length);
   agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
   // update the parcelsCarried array
-  agentData.parcels.forEach((parcel) => {
+  /* agentData.parcels.forEach((parcel) => {
     if (
       parcel.carriedBy === agentData.id &&
       !agentData.parcelsCarried.some((p) => parcel.id === p.id) &&
@@ -74,7 +79,7 @@ client.onParcelsSensing(async (parcels_sensed) => {
     ) {
       agentData.parcelsCarried.push(parcel);
     }
-  });
+  }); */
 });
 
 // update the agents in the agent belief
@@ -110,7 +115,8 @@ client.onAgentsSensing((agents_sensed) => {
 });
 
 client.onMsg(async (id, name, msg, reply) => {
-  let fromId, from = {id, name};
+  let fromId,
+    from = { id, name };
   switch (msg.type) {
     case "say_parcels":
       msg.data.forEach((parcel) => {
@@ -129,11 +135,46 @@ client.onMsg(async (id, name, msg, reply) => {
       break;
     case "say_position":
       agentData.matePosition = msg.data;
-      mapData.updateTileValue(msg.data.x, msg.data.y, 0);
       break;
     case "say_intention":
-      agentData.mateIntention = msg.data;
-      console.log("DEBUG [belief.js] Mate intention:", agentData.mateIntention);
+      agentData.mateIntention = new Intention(null, msg.data);
+      console.log(
+        "DEBUG [belief.js] Mate intention:",
+        agentData.mateIntention.predicate
+      );
+      break;
+    case "ask_pick_up":
+      const parcels = Array.isArray(msg.data.parcel)
+        ? msg.data.parcel
+        : [msg.data.parcel];
+
+      console.log("DEBUG [belief.js] Pick up request for parcel:", parcels);
+      agentData.currentIntention.stop();
+            await new Promise((res) => setTimeout(res, 200));
+      var pick_predicate = { type: "pick_up", goal: parcels[0], utility: 10000 };
+      var status = await agentData.myIntentions.push(pick_predicate);
+      if (status) {
+        if (
+          parcels.forEach((parcel) => agentData.parcelsCarried.includes(parcel))
+        ) {
+          reply(true);
+          console.log(
+            "DEBUG [belief.js] get this parcelsss:",
+            agentData.parcelsCarried
+          );
+        } else reply(false);
+      } else {
+        reply(false);
+      }
+      break;
+    case "ask_move":
+      const position = msg.data.position;
+      console.log("DEBUG [belief.js] Move request to position:", position);
+      agentData.currentIntention.stop();
+      await new Promise((res) => setTimeout(res, 200));
+      var goto_predicate = { type: "go_to", goal: position, utility: 10000 };
+      var status = await agentData.myIntentions.push(goto_predicate);
+      reply(status);
       break;
     default:
       console.log("DEBUG [belief.js] Unknown message type:", msg.type);

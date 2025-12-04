@@ -37,12 +37,6 @@ export async function sayPositionToMate(){
     data: agentData.pos,
   });
 }
-export async function askForPutdown(){
-  await client.emitAsk(agentData.mateId, {
-    type: "ask_put_down",
-    data: {}
-  })
-}
 
 /**
  * ask message format/protocol:
@@ -50,13 +44,15 @@ export async function askForPutdown(){
  * type: "ask_pick_up" | "ask_put_down",
  * data: {
  *   parcel: { id, x, y, reward, carriedBy } or
- *   putdwon: { x, y }
- * * }
+ *   putdown: { x, y }
+ * }
  */
 export async function askPickUp(parcel) {
   await client.emitAsk(agentData.mateId, {
     type: "ask_pick_up",
     data: { parcel },
+  }).then((response) => {
+    return response;
   });
 }
 
@@ -64,5 +60,12 @@ export async function askPutDown() {
   await client.emitAsk(agentData.mateId, {
     type: "ask_put_down",
     data: {},
+  });
+}
+
+export async function askMove(position) {
+  return await client.emitAsk(agentData.mateId, {
+    type: "ask_move",
+    data: { position },
   });
 }

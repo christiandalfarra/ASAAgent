@@ -37,8 +37,7 @@ export class Intention {
 
   // Log function, using parent logger if available
   log(...args) {
-    if (this.#parent && this.#parent.log) this.#parent.log("\t", ...args);
-    else console.log(...args);
+    console.log(...args);
   }
 
   /**
@@ -55,10 +54,7 @@ export class Intention {
       if (this.stopped) throw ["stopped intention", this.#predicate];
 
       // Check if the plan is applicable
-      if (
-        this.#predicate &&
-        planClass.isApplicableTo(this.#predicate.type)
-      ) {
+      if (this.#predicate && planClass.isApplicableTo(this.#predicate.type)) {
         // Instantiate and execute the plan
         this.#current_plan = new planClass(this.#predicate);
         this.log(
@@ -120,14 +116,6 @@ export class IntentionRevision {
   async loop() {
     while (true) {
       if (this.intentions_queue.length > 0) {
-        // sort intentions by their utility (fix: return comparator value)
-        this.intentions_queue.forEach((intention, _ ) => {
-          if (intention.predicate.type === "go_pick_up") {
-            intention.predicate.utility = pickUpUtility(
-              intention.predicate.goal
-            );
-          }
-        });
         this.intentions_queue.sort(
           (a, b) => b.predicate.utility - a.predicate.utility
         );
@@ -149,10 +137,9 @@ export class IntentionRevision {
         }
         // Esegui la migliore
         agentData.currentIntention = intention;
-        console.log("[intention.js] my current intention", agentData.currentIntention);
-        console.log("[intention.js] mate intention", agentData.mateIntention);
         // comunica l'intenzione al mate
         sayIntention(intention.predicate);
+        console.log("DEBUG [intention.js] Current intention:", intention.predicate);
         await intention.achieve();
         this.intentions_queue.shift();
       }
@@ -176,20 +163,19 @@ export class IntentionRevision {
 
     // Evita conflitto con mia/mate intention
     if (
-      agentData.currentIntention &&
+      agentData.currentIntention?.predicate &&
       checkOption(predicate, agentData.currentIntention.predicate)
     ) {
       return;
     }
     if (
       agentData.mateId !== agentData.id &&
-      agentData.mateIntention &&
+      agentData.mateIntention?.predicate &&
       checkOption(predicate, agentData.mateIntention.predicate)
     ) {
       return;
     }
 
-    console.log("pushing intention controls passed", predicate);
     const intention = new Intention(this, predicate);
     this.intentions_queue.push(intention);
 

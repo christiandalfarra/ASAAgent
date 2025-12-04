@@ -1,6 +1,6 @@
 import fs from "fs";
 import { agentData, mapData, envData, startTime } from "../belief/belief.js";
-import { client, teamAgentId} from "../conf.js";
+import { client, teamAgentId } from "../conf.js";
 
 /**
  * function to convert the tiles array to a matrix
@@ -350,13 +350,13 @@ export function pickUpUtility(parcel) {
   }
 }
 
-export function checkOption(pred1, pred2){
+export function checkOption(pred1, pred2) {
   return pred1 && pred2 && pred1.type === pred2.type && pred1.goal.x === pred2.goal.x && pred1.goal.y === pred2.goal.y;
 }
-export function checkPathWithMate(pos){
+export function checkPathWithMate(pos) {
   // create a utility map excluding the mate position
   let utilityMap = JSON.parse(JSON.stringify(mapData.utilityMap));
-  if (agentData.matePosition && validPosition(agentData.matePosition)){
+  if (agentData.matePosition && validPosition(agentData.matePosition)) {
     utilityMap[agentData.matePosition.x][agentData.matePosition.y] = 0;
     let path = findAStar(utilityMap, agentData.pos, pos);
     if (!path) {
@@ -365,93 +365,4 @@ export function checkPathWithMate(pos){
   }
   return false;
 }
-export function findMeetingPoint(pos1, pos2) {
-  let path = findAStar(mapData.utilityMap, pos1, pos2);
-  if (path && path.length > 0) {
-    return {x : path[Math.floor(path.length / 2)].x, y : path[Math.floor(path.length / 2)].y};
-  }
-}
-export function findMeetingPoint2(pos1, pos2) {
-  const rows = mapData.width;
-  const cols = mapData.height;
 
-  // Tabelle delle distanze
-  const dist1 = Array.from({ length: rows }, () => Array(cols).fill(-1));
-  const dist2 = Array.from({ length: rows }, () => Array(cols).fill(-1));
-
-  // Code per BFS
-  const queue1 = [{ x: pos1.x, y: pos1.y }];
-  const queue2 = [{ x: pos2.x, y: pos2.y }];
-  dist1[pos1.y][pos1.x] = 0;
-  dist2[pos2.y][pos2.x] = 0;
-
-  const dirs = [
-    { x: 1, y: 0 },
-    { x: -1, y: 0 },
-    { x: 0, y: 1 },
-    { x: 0, y: -1 }
-  ];
-
-  let bestPoint = null;
-  let bestDistance = Infinity;
-
-  // BFS simultanea
-  let head1 = 0, head2 = 0;
-
-  while (head1 < queue1.length || head2 < queue2.length) {
-    // Espansione da pos1
-    if (head1 < queue1.length) {
-      const { x, y } = queue1[head1++];
-      for (const d of dirs) {
-        const nx = x + d.x, ny = y + d.y;
-        if (
-          nx >= 0 && nx < cols &&
-          ny >= 0 && ny < rows &&
-          mapData.utilityMap[ny][nx] !== 0 &&
-          dist1[ny][nx] === -1
-        ) {
-          dist1[ny][nx] = dist1[y][x] + 1;
-          queue1.push({ x: nx, y: ny });
-
-          // Se già visitato dall’altro BFS → punto di incontro
-          if (dist2[ny][nx] !== -1) {
-            const total = dist1[ny][nx] + dist2[ny][nx];
-            if (total < bestDistance) {
-              console.log("OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOo fnd")
-              bestDistance = total;
-              bestPoint = { x: nx, y: ny, total };
-            }
-          }
-        }
-      }
-    }
-
-    // Espansione da pos2
-    if (head2 < queue2.length) {
-      const { x, y } = queue2[head2++];
-      for (const d of dirs) {
-        const nx = x + d.x, ny = y + d.y;
-        if (
-          nx >= 0 && nx < cols &&
-          ny >= 0 && ny < rows &&
-          mapData.utilityMap[ny][nx] !== 0 &&
-          dist2[ny][nx] === -1
-        ) {
-          dist2[ny][nx] = dist2[y][x] + 1;
-          queue2.push({ x: nx, y: ny });
-
-          // Se già visitato dall’altro BFS → punto di incontro
-          if (dist1[ny][nx] !== -1) {
-            const total = dist1[ny][nx] + dist2[ny][nx];
-            if (total < bestDistance) {
-              bestDistance = total;
-              bestPoint = { x: nx, y: ny, total };
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return bestPoint;
-}
