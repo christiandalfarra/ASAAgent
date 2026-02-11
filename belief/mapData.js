@@ -6,6 +6,7 @@ export class MapData {
   // Key coordinate sets
   deliverCoordinates = []; // delivery tile positions
   spawnCoordinates = []; // spawning tile positions
+  walkableCoordinates = []; // walkable tile positions
 
   // Map dimensions
   width = 0;
@@ -17,8 +18,15 @@ export class MapData {
     this.utilityMap = [];
     this.deliverCoordinates = [];
     this.spawningCoordinates = [];
+    this.walkableCoordinates = [];
     this.width = 0;
     this.height = 0;
+  }
+
+  setWalkableCoordinates(tiles) {
+    this.walkableCoordinates = tiles
+      .filter((t) => t.type === 0)
+      .map((t) => ({ x: t.x, y: t.y }));
   }
 
   /**

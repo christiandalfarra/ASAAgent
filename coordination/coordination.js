@@ -6,10 +6,12 @@ import { client } from "../conf.js";
 /**
  * say Message format/protocol:
  * {
- *  type: "say_agents" | "say_parcels" | "say_intention",
+ *  type: "say_agents" | "say_intention" | "say_position",
  *  data: {
  *    agents: [ { id, name, x, y, score } ] or
- *    parcels: [ { id, x, y, reward, carriedBy } ]
+ *    intention: { type, goal, utility, parent } or
+ *    position: { x, y }
+ *  }
  * }
  */
 
@@ -17,12 +19,6 @@ export async function sayAgents(agents) {
   await client.emitSay(agentData.mateId, {
     type: "say_agents",
     data: agents,
-  });
-}
-export async function sayParcels(parcels) {
-  await client.emitSay(agentData.mateId, {
-    type: "say_parcels",
-    data: parcels,
   });
 }
 export async function sayIntention(predicate) {
@@ -41,31 +37,14 @@ export async function sayPositionToMate(){
 /**
  * ask message format/protocol:
  * {
- * type: "ask_pick_up" | "ask_put_down",
+ * type: "ask_pick_up",
  * data: {
- *   parcel: { id, x, y, reward, carriedBy } or
- *   putdown: { x, y }
+ *   pos: { x, y }
  * }
  */
-export async function askPickUp(parcel) {
+export async function askPickUp(pos) {
   await client.emitAsk(agentData.mateId, {
     type: "ask_pick_up",
-    data: { parcel },
-  }).then((response) => {
-    return response;
-  });
-}
-
-export async function askPutDown() {
-  await client.emitAsk(agentData.mateId, {
-    type: "ask_put_down",
-    data: {},
-  });
-}
-
-export async function askMove(position) {
-  return await client.emitAsk(agentData.mateId, {
-    type: "ask_move",
-    data: { position },
+    data: { pos },
   });
 }

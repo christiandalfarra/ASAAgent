@@ -31,6 +31,21 @@ const agent_2 = {
 };
 
 const args = argsParser(process.argv);
+
+let usePddl= false;
+console.log("DEBUG [index.js] Use PDDL:", args["pddl"]);
+if (args["pddl"] === "T"){
+  usePddl = true;
+}else if (args["pddl"] === "F"){
+  usePddl = false;
+} else {
+  console.error(
+    "Error: invalid parameter for pddl, u must use T (use pddl) or F (don't use pddl) as argument"
+  );
+  process.exit(1); // codice di uscita diverso da 0 indica un errore
+}
+console.log("DEBUG [index.js] Use PDDL:", usePddl);
+
 if (args["mode"] === "S") {
   spawnProcess(agent_1);
 } else if (args["mode"] === "M") {
@@ -43,13 +58,15 @@ if (args["mode"] === "S") {
   process.exit(1); // codice di uscita diverso da 0 indica un errore
 }
 
+
 // Function to spawn child processes
 function spawnProcesses(me, teamMate) {
   const childProcess = spawn(
     `node agent.js \
         host="${host}" \
         token="${me.token}" \
-        teamId="${teamMate.id}" `,
+        teamId="${teamMate.id}" \
+        usePddl="${usePddl}"`,
     { shell: true }
   );
 
@@ -70,7 +87,8 @@ function spawnProcess(me) {
     `node agent.js \
         host="${host}" \
         token="${me.token}" \
-        teamId="${me.id}" `,
+        teamId="${me.id}" \
+        usePddl="${usePddl}"`,
     { shell: true }
   );
 

@@ -1,4 +1,5 @@
-import { agentData, mapData } from "../belief/belief.js";
+import { agentData, mapData, envData } from "../belief/belief.js";
+import { onlineSolver, PddlExecutor, PddlProblem } from "@unitn-asa/pddl-client";
 import {
   findNearestDelivery,
   findNearestFrom,
@@ -6,7 +7,9 @@ import {
 } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../conf.js";
-import { askPickUp, askMove } from "../coordination/coordination.js";
+import { askPickUp } from "../coordination/coordination.js";
+import { optionsLoop } from "../intention/options.js";
+import { createPddlProblem, createPddlActions, domain} from "./pddlUtils.js";
 
 //import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
 
@@ -61,84 +64,100 @@ class GoTo extends Plan {
     if (atGoal()) {
       return true;
     }
-
     let path = findAStar(mapData.utilityMap, agentData.pos, goal);
-    if (!path || path.length === 0) {
+    if (!path) {
       return false;
     }
     let moveRetries = 0;
 
     while (!atGoal()) {
       if (this.stopped) throw ["stopped"];
-
-      if (!path || path.length === 0) {
-        path = findAStar(mapData.utilityMap, agentData.pos, goal);
-        if (!path || path.length === 0) {
-          return false;
-        }
-      }
-
-      const nextMove = path[0];
+      let nextMove = path[0];
       if (!nextMove) {
-        path.shift();
-        continue;
+        return false;
       }
-
       const success = await client.emitMove(nextMove.action);
       if (!success) {
         console.log("[plans.js] Move failed", nextMove.action);
         moveRetries += 1;
         const blockedX = nextMove.x;
         const blockedY = nextMove.y;
-        const blockedByEnemy = agentData.enemies.some(
-          (enemy) => enemy.x === blockedX && enemy.y === blockedY
-        );
-        const blockedByMate =
-          agentData.mateId !== agentData.id &&
-          agentData.matePosition?.x === blockedX &&
-          agentData.matePosition?.y === blockedY;
-        if (blockedByEnemy) {
-          console.log("[plans.js] Enemy blocking at", blockedX, blockedY);
-          if (
-            agentData.currentIntention?.predicate?.type === "go_put_down" &&
-            agentData.currentIntention.predicate.goal.x === blockedX &&
-            agentData.currentIntention.predicate.goal.y === blockedY
-          ) {
-            console.log("[plans.js] Enemy blocking at delivery point, trying new delivery point...");
-            // if an enemy is blocking me at the delivery point, try to find a new delivery point
-            const newGoal = checkNewDelivery(goal);
+        // if blocked by an enemy, update the map to set that tile as blocked
+        if (
+          agentData.enemies.some(
+            (enemy) => enemy.x === blockedX && enemy.y === blockedY,
+          )
+        ) {
+          mapData.updateTileValue(blockedX, blockedY, 0);
+          // if the current goal is a delivery point, check for alternative delivery points
+          if (predicate.parent && predicate.parent === "go_put_down") {
+            const newGoal = findNearestDelivery(agentData.pos);
             if (newGoal) {
-              console.log(
-                `[plans.js] Switching delivery goal to (${newGoal.x}, ${newGoal.y})`
-              );
-              goal = predicate.goal = newGoal;
+              goal = newGoal;
             }
-          } else {
-            mapData.updateTileValue(blockedX, blockedY, 0);
-          }
-        } else if (blockedByMate) {
-          console.log("[plans.js] Mate blocking at", blockedX, blockedY);
-          if (agentData.currentIntention?.predicate?.type === "go_put_down") {
-            //blocked xy are coorrd of the positon tha the deliverer cant reach
-            // so is the position of the other mate
-            console.log(
-              "[plans.js] Mate blocking at delivery point, waiting...",
-              blockedX,
-              blockedY
-            );
-            // try to communicate an exchange intention
-            const exchangePredicate = {
-              type: "exchange",
-              goal: { x: blockedX, y: blockedY },
-              utility: 10000,
-            };
-            console.log("[plans.js] Pushing exchange intention to mate", exchangePredicate);
-            //agentData.currentIntention.stop();
-            await new Promise((res) => setTimeout(res, 200));
-            await agentData.myIntentions.push(exchangePredicate);
-            return false;
           }
         }
+        if (
+          agentData.mateId !== agentData.id &&
+          agentData.matePosition?.x === blockedX &&
+          agentData.matePosition?.y === blockedY
+        ) {
+          console.log("[plans.js] Move blocked by mate at", blockedX, blockedY);
+          // if i am moving go to or pickup, update tile to 0 and avoid the mate
+          if (
+            predicate.parent == "random_walk" ||
+            predicate.parent == "go_pick_up"
+          ) {
+            mapData.updateTileValue(blockedX, blockedY, 0);
+            if (!findAStar(mapData.utilityMap, agentData.pos, goal)){
+              return false;
+            }
+          } else if (predicate.parent === "go_put_down") {
+            // check if there is another path to avoid the mate, if not, drop the parcels move way and ask to mate to pickup
+            mapData.updateTileValue(blockedX, blockedY, 0)
+            // before drop the parcel, i have to check if am able to move away
+            // if not i will ask the mate to move away one position and i will wait in the current position, 
+            // after few seconds i will try to go in the prev pos of the mate, drop the parcel and wait again
+            await client.emitPutdown();
+            let myPos = { x: agentData.pos.x, y: agentData.pos.y };
+            agentData.parcelsCarried.clear();
+            // i move away from the mate checking the possible directions in utility map
+            const directions = [
+              { x: agentData.pos.x + 1, y: agentData.pos.y, action: "right" },
+              { x: agentData.pos.x - 1, y: agentData.pos.y, action: "left" },
+              { x: agentData.pos.x, y: agentData.pos.y + 1, action: "up" },
+              { x: agentData.pos.x, y: agentData.pos.y - 1, action: "down" },
+            ];
+            let movedAway = false;
+            for (const dir of directions) {
+              if (mapData.utilityMap[dir.x][dir.y] !== 0) {
+                const moveSuccess = await client.emitMove(dir.action);
+                if (moveSuccess) {
+                  movedAway = true;
+                  break;
+                }
+              }
+            }
+            if (!movedAway) {
+              console.log(
+                "[plans.js] Failed to move away from mate. Will still request mate to pick up.",
+              );
+              // ask the mate to move away one position wait few seconds, i will  go in the prev pos of the mate
+              // drop the parcel and wait
+              const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+              await wait(envData.clock * 4); // wait for mate to pick up
+            }
+
+            await askPickUp(myPos);
+            const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            await wait(envData.clock * 6); // wait for mate to pick up
+            await agentData.currentIntention?.stop(); // stop current intention to replan with the new state after mate picks up
+            await optionsLoop(); // replan immediately after mate picks up
+            return false; // return false to indicate that the original go_put_down intention was not completed and needs to be replanned
+            //}
+          }
+        }
+        // if one is delivering and there are no other paths, drop the parcel move away and ask to mate to pick up
         if (moveRetries < maxMoveRetries) {
           continue;
         }
@@ -147,8 +166,8 @@ class GoTo extends Plan {
         if (path && path.length > 0) {
           continue;
         }
-        if (path.length === 0) {
-          await new Promise((res) => setTimeout(res, envConfig.clock));
+        if (!path) {
+          await new Promise((res) => setTimeout(res, envData.clock * 2));
         }
       }
       path.shift();
@@ -161,14 +180,14 @@ function checkNewDelivery(goal) {
   return findNearestFrom(
     agentData.pos,
     mapData.deliverCoordinates.filter(
-      (coord) => coord.x !== goal.x || coord.y !== goal.y
-    )
+      (coord) => coord.x !== goal.x || coord.y !== goal.y,
+    ),
   );
 }
 /**
- * PddlPickUp class that extends GoTo, used to pick up a parcel
+ * PddlPickUp class that extends Plan, used to pick up a parcel
  */
-class PickUp extends GoTo {
+class PickUp extends Plan {
   static isApplicableTo(type) {
     return type == "go_pick_up";
   }
@@ -176,13 +195,22 @@ class PickUp extends GoTo {
   async execute(predicate) {
     // Move the agent to the parcel position and pick it up
     if (this.stopped) throw ["stopped"]; // if stopped then quit
-    await super.execute(predicate);
+    await this.subIntention({
+      type: "go_to",
+      goal: { x: predicate.goal.x, y: predicate.goal.y },
+      utility: predicate.utility,
+      parent: predicate.type,
+    });
     if (this.stopped) throw ["stopped"]; // if stopped then quit
 
     var status = await client.emitPickup();
     if (status) {
-      agentData.parcelsCarried.push(predicate.goal)
-      console.log("[plans.js] parcels on my head   : ", agentData.parcelsCarried);
+      agentData.parcelsCarried.set(predicate.goal.id, predicate.goal);
+      agentData.parcels.delete(predicate.goal.id);
+      console.log(
+        "[plans.js] parcels on my head   : ",
+        agentData.parcelsCarried,
+      );
       return true;
     } else {
       return false;
@@ -191,9 +219,9 @@ class PickUp extends GoTo {
 }
 
 /**
- * PddlPutDown class that extends GoTo, used to put down a parcel
+ * PddlPutDown class that extends Plan, used to put down a parcel
  */
-class PutDown extends GoTo {
+class PutDown extends Plan {
   static isApplicableTo(type) {
     return type == "go_put_down";
   }
@@ -202,158 +230,146 @@ class PutDown extends GoTo {
     let goal = predicate.goal;
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     console.log("[plans.js] Putting down parcel at", goal);
-    await super.execute(predicate);
+    await this.subIntention({
+      type: "go_to",
+      goal: { x: goal.x, y: goal.y },
+      utility: predicate.utility,
+      parent: predicate.type,
+    });
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     if (await client.emitPutdown()) {
-      agentData.parcels = agentData.parcels.filter(
-        (parcel) => !agentData.parcelsCarried.includes(parcel)
-      );
-      agentData.parcelsCarried.length = 0;
+      agentData.parcelsCarried.clear();
       return true;
     } else {
       return false;
     }
   }
 }
-class Exchange1 extends Plan {
-  static isApplicableTo(type) { 
-    return type == "exchange"
+
+class PddlGoTo extends Plan {
+  static isApplicableTo(type) {
+    return type === 'go_to';
   }
 
   async execute(predicate) {
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-    console.log("[plans.js] Executing exchange at", predicate.goal);
-    // The agent is not carrying parcels and is blocking the mate.
-    // Just move out of the way.
-    const directions = [
-        { x: 0, y: -1, action: "down" },
-        { x: 0, y: 1, action: "up" },
-        { x: -1, y: 0, action: "left" },
-        { x: 1, y: 0, action: "right" },
-    ];
+    if (this.stopped) throw ['stopped'];
+    let retries = 3;
 
-    for (const dir of directions) {
-        const newPos = { x: agentData.pos.x + dir.x, y: agentData.pos.y + dir.y };
-        if (mapData.utilityMap[newPos.x][newPos.y] !== 0 &&
-            (newPos.x !== agentData.matePosition.x || newPos.y !== agentData.matePosition.y)) {
-            await client.emitMove(dir.action);
-            return true; // Moved successfully
-        }
+    while (retries > 0) {
+      if (this.stopped) throw ['stopped'];
+
+      const { name, objects, inits, goals } = createPddlProblem(predicate);
+      const pddlProblem = new PddlProblem(name, objects, inits, goals);
+      const problemStr = pddlProblem.toPddlString();
+
+      const plan = await onlineSolver(domain, problemStr);
+
+      if (!plan || plan.length === 0) {
+        console.log(`[plans.js] PDDL planner failed to find a plan for go_to (${predicate.goal.x}, ${predicate.goal.y}). Retrying...`);
+        await new Promise(res => setTimeout(res, envData.clock));
+        retries--;
+        continue;
+      }
+
+      const pddlActions = createPddlActions(() => this.stopped);
+      const pddlExecutor = new PddlExecutor(...Object.values(pddlActions));
+
+      await pddlExecutor.exec(plan);
+
+      const reachedGoal =
+        agentData.pos.x === predicate.goal.x && agentData.pos.y === predicate.goal.y;
+      if (reachedGoal) {
+        return true;
+      }
+
+      console.log(
+        `[plans.js] PDDL plan executed but goal (${predicate.goal.x}, ${predicate.goal.y}) not reached yet. Retrying...`
+      );
+      await new Promise((res) => setTimeout(res, envData.clock));
+      retries--;
     }
-    return false; // Could not find a place to move
+    console.log(`[plans.js] Failed to execute go_to (${predicate.goal.x}, ${predicate.goal.y}) after multiple attempts.`);
+    return false;
   }
 }
-class Exchange extends Plan {
-  static isApplicableTo(type) { 
-    return type == "exchange";
+
+class PddlPickUp extends Plan {
+  static isApplicableTo(type) {
+    return type === 'go_pick_up';
   }
 
   async execute(predicate) {
-    if (this.stopped) throw ["stopped"]; // if stopped then quit
-    console.log("[plans.js] Executing exchange at", predicate.goal);
-    // leave the parcels on the ground
-    if (agentData.parcelsCarried.length > 0) {
-        const putDownSuccess = await client.emitPutdown();
-        if (putDownSuccess) {
-            // Update parcels from being carried to being on the ground
-            agentData.parcelsCarried.forEach(p => {
-                const parcelIndex = agentData.parcels.findIndex(parcel => parcel.id === p.id);
-                if (parcelIndex !== -1) {
-                    agentData.parcels[parcelIndex].carriedBy = null;
-                    agentData.parcels[parcelIndex].x = agentData.pos.x;
-                    agentData.parcels[parcelIndex].y = agentData.pos.y;
-                }
-            });
-            const droppedParcels = [...agentData.parcelsCarried];
-            agentData.parcelsCarried = [];
+    if (this.stopped) throw ['stopped'];
 
-            // move away so the mate can pick them up
-            // so in the opposite direction of the mate or in a random direction that is free different from the mate
-            const directions = [
-                { x: 0, y: -1, action: "down" },
-                { x: 0, y: 1, action: "up" },
-                { x: -1, y: 0, action: "left" },
-                { x: 1, y: 0, action: "right" },
-            ];
-            let moved = false;
-            for (const dir of directions) {
-                const newPos = { x: agentData.pos.x + dir.x, y: agentData.pos.y + dir.y };
-                if (mapData.utilityMap[newPos.x][newPos.y] !== 0 &&
-                    (newPos.x !== agentData.matePosition.x || newPos.y !== agentData.matePosition.y)) {
-                    await client.emitMove(dir.action);
-                    moved = true;
-                    break;
-                }
-            }
-            if (!moved) {
-                // if I can't move away, ask the mate to move
-                const mateDirections = [
-                    { x: 0, y: -1, action: "down" },
-                    { x: 0, y: 1, action: "up" },
-                    { x: -1, y: 0, action: "left" },
-                    { x: 1, y: 0, action: "right" },
-                ];
-                let targetForMate = null;
-                for (const dir of mateDirections) {
-                    const newMatePos = { x: agentData.matePosition.x + dir.x, y: agentData.matePosition.y + dir.y };
-                    if (mapData.utilityMap[newMatePos.x][newMatePos.y] !== 0 &&
-                        (newMatePos.x !== agentData.pos.x || newMatePos.y !== agentData.pos.y)) {
-                        targetForMate = newMatePos;
-                        break;
-                    }
-                }
+    const parcel = agentData.parcels.get(predicate.goal.id);
 
-                if (targetForMate) {
-                    const response = await askMove(targetForMate);
-                    if (response) { // if the mate agrees to move
-                        // wait for the mate to move
-                        const originalMatePosition = {x: agentData.matePosition.x, y: agentData.matePosition.y};
-                        while(agentData.matePosition.x === originalMatePosition.x && agentData.matePosition.y === originalMatePosition.y) {
-                            await new Promise(res => setTimeout(res, 200));
-                        }
-                        // now I can move
-                        for (const dir of directions) {
-                            const newPos = { x: agentData.pos.x + dir.x, y: agentData.pos.y + dir.y };
-                            if (mapData.utilityMap[newPos.x][newPos.y] !== 0) {
-                                await client.emitMove(dir.action);
-                                moved = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+    const { name, objects, inits, goals } = createPddlProblem(predicate);
+    const pddlProblem = new PddlProblem(name, objects, inits, goals);
+    const problemStr = pddlProblem.toPddlString();
 
-            if (moved) {
-                // then ask to the mate to pick up in the position of the exchange
-                for (const parcel of droppedParcels) {
-                    await askPickUp(parcel);
-                }
+    const plan = await onlineSolver(domain, problemStr);
+    if (!plan || plan.length === 0) return false;
 
-                // wait until the mate has picked up the parcels
-                let allParcelsPickedUp = false;
-                while (!allParcelsPickedUp) {
-                    await new Promise(res => setTimeout(res, 200)); // wait a bit
-                    allParcelsPickedUp = true;
-                    for (const droppedParcel of droppedParcels) {
-                        const parcelInWorld = agentData.parcels.find(p => p.id === droppedParcel.id);
-                        if (!parcelInWorld || parcelInWorld.carriedBy !== agentData.mateId) {
-                            allParcelsPickedUp = false;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
+    const pddlActions = createPddlActions(() => this.stopped);
+    const pddlExecutor = new PddlExecutor(...Object.values(pddlActions));
+    await pddlExecutor.exec(plan);
+
+    // If I see the parcel or I dont't reach the target, I don't pick it up
+    const parcelNow = agentData.parcels.get(predicate.goal.id);
+    if (parcelNow || agentData.pos.x !== predicate.goal.x || agentData.pos.y !== predicate.goal.y) {
+      console.warn(
+        `[plans.js] Parcel ${predicate.goal.id} not picked at target (${predicate.goal.x}, ${predicate.goal.y}).`
+      );
+      return false;
     }
+
+    const now = Date.now();
+    agentData.parcelsCarried.set(parcel.id, { ...parcel, lastTimestamp: now, estimated: false, estimatedReward: parcel.reward });
+    agentData.parcels.delete(parcel.id);
     return true;
   }
 }
-const plans = [];
 
-plans.push(PickUp);
-plans.push(GoTo);
-plans.push(PutDown);
-plans.push(Exchange);
+class PddlPutDown extends Plan {
+  static isApplicableTo(type) {
+    return type === 'go_put_down';
+  }
 
-export { plans };
+  async execute(predicate) {
+    if (this.stopped) throw ['stopped'];
+    predicate.goal.id = agentData.parcelsCarried.keys().next().value; // get the id of the parcel carried to put down
+
+    const { name, objects, inits, goals } = createPddlProblem(predicate);
+    const pddlProblem = new PddlProblem(name, objects, inits, goals);
+    const problemStr = pddlProblem.toPddlString();
+
+    const plan = await onlineSolver(domain, problemStr);
+    if (!plan || plan.length === 0) return false;
+
+    const pddlActions = createPddlActions(() => this.stopped);
+    const pddlExecutor = new PddlExecutor(...Object.values(pddlActions));
+    await pddlExecutor.exec(plan);
+
+    if (agentData.pos.x !== predicate.goal.x || agentData.pos.y !== predicate.goal.y) {
+      console.warn(
+        `[plans.js] Agent ${agentData.id} did not reach target (${predicate.goal.x}, ${predicate.goal.y}).`
+      );
+      return false;
+    }
+
+    agentData.parcelsCarried.clear();
+    return true;
+  }
+}
+
+export const plans = [];
+export function configurePlans(usePddl) {
+  plans.length = 0;
+  if (usePddl) {
+    console.log("DEBUG [plans.js] Using PDDL-based plans");
+    plans.push(PddlGoTo, PddlPickUp, PddlPutDown);
+  } else {
+    console.log("DEBUG [plans.js] Using non-PDDL-based plans");
+    plans.push(GoTo, PickUp, PutDown);
+  }
+}

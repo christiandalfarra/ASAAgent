@@ -2,13 +2,6 @@ import { plans } from "../planning/plans.js";
 import { agentData } from "../belief/belief.js";
 import { sayIntention } from "../coordination/coordination.js";
 import { checkOption } from "../main/utils.js";
-import {
-  findNearestDelivery,
-  distanceAStar,
-  countCloseParcels,
-  utilityDistanceAStar,
-  pickUpUtility,
-} from "../main/utils.js";
 
 /**
  * Intention class
@@ -139,7 +132,6 @@ export class IntentionRevision {
         agentData.currentIntention = intention;
         // comunica l'intenzione al mate
         sayIntention(intention.predicate);
-        console.log("DEBUG [intention.js] Current intention:", intention.predicate);
         await intention.achieve();
         this.intentions_queue.shift();
       }

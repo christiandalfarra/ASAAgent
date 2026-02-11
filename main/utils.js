@@ -32,7 +32,7 @@ export function readFile(path) {
     });
   });
 }
-export async function initEnv(time = 2000) {
+export async function initEnv(time = 2000, usePddl = false) {
   //set the map, delivery and spawning coordinates
   client.onMap((width, height, tiles) => {
     mapData.width = width;
@@ -41,12 +41,13 @@ export async function initEnv(time = 2000) {
     mapData.utilityMap = convertToMatrix(width, height, tiles);
     mapData.setSpawnCoordinates(tiles);
     mapData.setDeliverCoordinates(tiles);
+    mapData.setWalkableCoordinates(tiles);
   });
 
   // set other values of the map from the config
   client.onConfig((config) => {
-    agentData.parcels = [];
-    agentData.parcelsCarried = [];
+    agentData.parcels = new Map();
+    agentData.parcelsCarried = new Map();
     envData.parcel_reward_avg = config.PARCEL_REWARD_AVG;
     envData.parcel_observation_distance = config.PARCEL_OBSERVATION_DISTANCE;
     envData.agents_observation_distance = config.AGENTS_OBSERVATION_DISTANCE;
@@ -54,6 +55,9 @@ export async function initEnv(time = 2000) {
 
     agentData.mateId = teamAgentId; // set the team agent id
     console.log("DEBUG [belief.js] Team Agent ID:", agentData.mateId);
+
+    agentData.usePddl = usePddl; // set the usePddl flag
+    console.log("DEBUG [belief.js] Use PDDL:", agentData.usePddl);
 
     let parcel_decading_interval = 0;
     if (config.PARCEL_DECADING_INTERVAL == "infinite") {
@@ -200,8 +204,8 @@ export function findNearestDelivery(pos) {
   let nearest;
   let minDistance = 2000;
   for (let coordinate of mapData.deliverCoordinates) {
-    if (!(coordinate.x === pos.x && coordinate.y === pos.y)) {
-      let distance = distanceAStar(pos, coordinate);
+    if (coordinate.x !== pos.x || coordinate.y !== pos.y) {
+      let distance = utilityDistanceAStar(pos, coordinate);
       if (distance != null && distance < minDistance) {
         minDistance = distance;
         nearest = { x: coordinate.x, y: coordinate.y };
@@ -332,10 +336,10 @@ export function pickUpUtility(parcel) {
   let scoreEnemyParcel = (distanceEnemyParcel - distanceMeParcel > 0) * 5;
 
   // how far we are from the nearest delivery point
-  let distanceDeliveryParcel = distanceAStar(
+  /* let distanceDeliveryParcel = utilityDistanceAStar(
     parcel,
     findNearestDelivery(parcel)
-  );
+  ); */
 
   // consider if near the parcel there are other parcels
   let parcelsNear = countCloseParcels({ x: parcel.x, y: parcel.y }, 1);
@@ -343,7 +347,7 @@ export function pickUpUtility(parcel) {
 
   let utility = timeScore + scoreAtPickUp + scoreEnemyParcel + nearParcelScore;
   // design a utility function
-  if (distanceAStar(agentData.pos, parcel) == null) {
+  if (utilityDistanceAStar(agentData.pos, parcel) == null) {
     return 0;
   } else {
     return utility ? utility : 5;

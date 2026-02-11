@@ -4,10 +4,12 @@ import { EnvData } from "./envData.js";
 import { client, teamAgentId } from "../conf.js";
 import { Intention } from "../intention/intention.js";
 import {
-  sayParcels,
   sayAgents,
   sayPositionToMate,
 } from "../coordination/coordination.js";
+import {
+  findNearestDelivery,
+} from "../main/utils.js";
 
 export const agentData = new AgentData();
 export const mapData = new MapData();
@@ -23,63 +25,35 @@ client.onYou(({ id, name, x, y, score }) => {
   }
   agentData.pos.x = Math.round(x);
   agentData.pos.y = Math.round(y);
-  if (agentData.mateId !== agentData.id) sayPositionToMate();
   agentData.score = Math.round(score);
-  /* if (flag) {
-   optionsLoop(); // update the options
-    flag = false; // set the flag to false
-  } */
-  agentData.parcelsCarried.filter(
-    (parcel) =>
-      parcel.carriedBy === agentData.id &&
-      !mapData.deliverCoordinates.some(
-        (pos) => parcel.x === pos.x && parcel.x === pos.x
-      )
-  );
+  sayPositionToMate(); // communicate the position to the team agent
 });
 
 // update the parcel data in the agent belief
-client.onParcelsSensing(async (parcels_sensed) => {
-  // update the parcels in the agent data
-  let updateParcels = [];
+client.onParcelsSensing((parcels_sensed) => {
   let timestamp = Date.now() - startTime;
-  // push sensed parcels with new timmestamp
-  for (let parcel of parcels_sensed) {
-    parcel.timestamp = timestamp;
-    updateParcels.push(parcel);
-  }
-  // look in what i see before and update the rewards of the parcels that i don't see anymore
-  for (let parcel of agentData.parcels) {
-    if (!updateParcels.some((p) => p.id == parcel.id)) {
-      let deltat = timestamp - parcel.timestamp;
-      //if i don't see the parcel anymore, update the reward in my belief
-      parcel.reward = Math.round(
-        parcel.reward - Math.round(deltat * envData.decade_frequency) / 1000
-      );
-      //if the reward is greater than 5, push it to the updateParcels array
-      if (parcel.reward > 5) {
-        updateParcels.push(parcel);
+  for (let index in parcels_sensed) {
+    let p = parcels_sensed[index];
+    if (agentData.parcels.has(p.id) && p.carriedBy == null) {
+      // if i have seen it before, update the parcel data
+      p.timestamp = timestamp;
+      agentData.parcels.set(p.id, p);
+    }else if (!agentData.parcels.has(p.id)) {
+      // if i never seen it before, push it to the array
+      p.timestamp = timestamp;
+      agentData.parcels.set(p.id, p);
+    }
+    if (agentData.parcels.has(p.id) && p.carriedBy != null) {
+      if (p.carriedBy == agentData.id) {
+        // update the carried parcels
+        agentData.parcelsCarried.set(p.id, p);
+      } else {
+        agentData.parcelsCarried.delete(p.id);
       }
+      // if i have seen it before but now is carried, remove it from the array
+      agentData.parcels.delete(p.id);
     }
   }
-  if (agentData.mateId !== agentData.id) {
-    await sayParcels(updateParcels); // communicate the parcels to the team agent
-  }
-  //reset to empty array and update the parcels
-  agentData.parcels.splice(0, agentData.parcels.length);
-  agentData.parcels = JSON.parse(JSON.stringify(updateParcels));
-  // update the parcelsCarried array
-  /* agentData.parcels.forEach((parcel) => {
-    if (
-      parcel.carriedBy === agentData.id &&
-      !agentData.parcelsCarried.some((p) => parcel.id === p.id) &&
-      !mapData.deliverCoordinates.some(
-        (pos) => parcel.x === pos.x && parcel.x === pos.x
-      )
-    ) {
-      agentData.parcelsCarried.push(parcel);
-    }
-  }); */
 });
 
 // update the agents in the agent belief
@@ -89,8 +63,8 @@ client.onAgentsSensing((agents_sensed) => {
   mapData.utilityMap = JSON.parse(JSON.stringify(mapData.map));
   // push sensed agents with new timestamp
   for (let index in agents_sensed) {
-    if (agents_sensed[index].id === teamAgentId) continue;
-    let a = agents_sensed[index];
+    let a = agents_sensed[index]
+    if (a.id === teamAgentId) continue;
     // if i never seen it before, push it to the array
     if (!agentData.enemies.some((enemy) => enemy.id == a.id)) {
       a.timestamp = timestamp;
@@ -118,13 +92,6 @@ client.onMsg(async (id, name, msg, reply) => {
   let fromId,
     from = { id, name };
   switch (msg.type) {
-    case "say_parcels":
-      msg.data.forEach((parcel) => {
-        if (!agentData.parcels.some((p) => p.id === parcel.id)) {
-          agentData.parcels.push(parcel);
-        }
-      });
-      break;
     case "say_agents":
       msg.data.forEach((agent) => {
         if (!agentData.enemies.some((a) => a.id === agent.id)) {
@@ -138,45 +105,43 @@ client.onMsg(async (id, name, msg, reply) => {
       break;
     case "say_intention":
       agentData.mateIntention = new Intention(null, msg.data);
-      console.log(
-        "DEBUG [belief.js] Mate intention:",
-        agentData.mateIntention.predicate
-      );
       break;
     case "ask_pick_up":
-      const parcels = Array.isArray(msg.data.parcel)
-        ? msg.data.parcel
-        : [msg.data.parcel];
-
-      console.log("DEBUG [belief.js] Pick up request for parcel:", parcels);
-      agentData.currentIntention.stop();
-            await new Promise((res) => setTimeout(res, 200));
-      var pick_predicate = { type: "pick_up", goal: parcels[0], utility: 10000 };
-      var status = await agentData.myIntentions.push(pick_predicate);
-      if (status) {
-        if (
-          parcels.forEach((parcel) => agentData.parcelsCarried.includes(parcel))
-        ) {
-          reply(true);
-          console.log(
-            "DEBUG [belief.js] get this parcelsss:",
-            agentData.parcelsCarried
-          );
-        } else reply(false);
-      } else {
-        reply(false);
+      const posPickUp = msg.data
+      console.log("DEBUG [belief.js] Pick up request at position:", posPickUp);
+      // block the intention that i am currently doing
+      await agentData.currentIntention?.stop();
+      // go to the position and pick up the parcel
+      try {
+        const pickUpIntention = new Intention(null, {
+          type: "go_pick_up",
+          goal: posPickUp,
+          utility: 100000,
+        });
+        await agentData.myIntentions.push(pickUpIntention);
+      } catch (error) {
+        console.log(
+          "DEBUG [belief.js] Failed to achieve pick up intention",
+          error
+        );
       }
-      break;
-    case "ask_move":
-      const position = msg.data.position;
-      console.log("DEBUG [belief.js] Move request to position:", position);
-      agentData.currentIntention.stop();
-      await new Promise((res) => setTimeout(res, 200));
-      var goto_predicate = { type: "go_to", goal: position, utility: 10000 };
-      var status = await agentData.myIntentions.push(goto_predicate);
-      reply(status);
+      // go to deliver the parcel to the nearest delivery point
+      /* try {
+        const deliveryIntention = new Intention(null, {
+          type: "go_put_down",
+          goal: findNearestDelivery(posPickUp),
+          utility: 100000,
+        });
+        await agentData.myIntentions.push(deliveryIntention);
+      } catch (error) {
+        console.log(
+          "DEBUG [belief.js] Failed to achieve delivery intention",
+          error
+        );
+      } */
+
       break;
     default:
-      console.log("DEBUG [belief.js] Unknown message type:", msg.type);
+      console.log("[belief.js] Unknown message type:", msg.type);
   }
 });

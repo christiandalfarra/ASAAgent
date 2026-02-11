@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "@unitn-asa/deliveroo-js-client": "^2.0.3",
+    "@unitn-asa/pddl-client": "^1.6.2",
     "jwt-decode": "^4.0.0"
   },
   "devDependencies": {

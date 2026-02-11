@@ -17,9 +17,9 @@ import {
 export async function optionsLoop() {
   // Evita crash se la mappa non è pronta
   if (!mapData.map || mapData.map.length === 0) return;
-
-  optionsGen();
-  optionsRevision();
+  agentData.options = [];
+  await optionsGen();
+  await optionsRevision();
 
   if (!agentData.options || agentData.options.length === 0) return;
 
@@ -31,55 +31,67 @@ export async function optionsLoop() {
 }
 
 // Populate the agentData.options array with possible options
-export function optionsGen() {
+export async function optionsGen() {
   agentData.options = [];
-  let viableParcels = generatePickUps();
+  await generatePickUps();
 
   if (
     agentData.currentIntention?.predicate.type !== "go_put_down" &&
-    (agentData.parcelsCarried.length > 0 &&
-      (viableParcels.length === 0 ||
-      checkDelivery()))
-    ) {
-    generateDeliveries();
+    agentData.parcelsCarried.size > 0 &&
+    (agentData.parcels.size === 0 || checkDelivery())
+  ) {
+    await generateDeliveries();
   }
   if (
     agentData.options.length === 0 &&
     agentData.myIntentions.intentions_queue.length === 0
   ) {
-    generateRandomWalk();
+    await generateRandomWalk();
   }
 }
-function generateRandomWalk() {
+async function generateRandomWalk() {
+  mapData.updateTileValue(agentData.matePosition.x, agentData.matePosition.y, 0); // avoid to consider the mate position as walkable
   if (!mapData.spawningCoordinates || mapData.spawningCoordinates.length === 0)
     return;
-  const randomIndex = Math.floor(
-    Math.random() * mapData.spawningCoordinates.length
-  );
-  const target = mapData.spawningCoordinates[randomIndex];
-  // if the target is not reachable, return
-  if (mapData.utilityMap[target.x][target.y] === 0) return;
-  if (agentData.mateId !== agentData.id) {
-    mapData.updateTileValue(
-      agentData.matePosition.x,
-      agentData.matePosition.y,
-      0
-    );
-    if (findAStar(mapData.utilityMap, agentData.pos, target) === null) return;
-    mapData.updateTileValue(
-      agentData.matePosition.x,
-      agentData.matePosition.y,
-      mapData.map[agentData.matePosition.x][agentData.matePosition.y].type
-    );
-  }
-  // add the random
-  agentData.options.push({
-    type: "go_to",
-    goal: { x: target.x, y: target.y },
-    utility: 0,
+  // check if there is a spawn point reachable
+  const reachableSpawnPoints = mapData.spawningCoordinates.filter((spawn) => {
+    const path = findAStar(mapData.utilityMap, agentData.pos, spawn);
+    return path !== null;
   });
+  // choose a random reachable spawn point or if there is none choose a random walkable tile
+  if (reachableSpawnPoints.length > 0) {
+    console.log("DEBUG [options.js]vai in uno spawn a caso ");
+    const target = reachableSpawnPoints[Math.floor(Math.random() * reachableSpawnPoints.length)];
+    agentData.options.push({
+      type: "go_to",
+      goal: { x: target.x, y: target.y },
+      utility: 0,
+      parent: "random_walk",
+    });
+    return;
+  }else{
+    console.log("DEBUG [options.js]non ci sono spawn raggiungibili, cerco un tile raggiungibile qualsiasi");
+    // if there is no reachable spawn point, choose a random walkable and reachable tile
+    const reachableWalkable = mapData.walkableCoordinates.filter((tile) => {
+      const path = findAStar(mapData.utilityMap, agentData.pos, tile);
+      return path !== null;
+    });
+    if (reachableWalkable.length > 0) {
+      const target = reachableWalkable[Math.floor(Math.random() * reachableWalkable.length)];
+      agentData.options.push({
+        type: "go_to",
+        goal: { x: target.x, y: target.y },
+        utility: 0,
+        parent: "random_walk",
+      });
+      return;
+    }else{
+      // wait
+      await new Promise((res) => setTimeout(res, envData.clock * 2));
+    }
+  }
 }
-function generatePickUps() {
+async function generatePickUps() {
   const delivering =
     agentData.currentIntention?.predicate.type === "go_put_down";
 
@@ -116,10 +128,9 @@ function generatePickUps() {
   })();
 
   let viableParcels =
-    agentData.parcels?.filter((parcel) => {
+    Array.from(agentData.parcels.values()).filter((parcel) => {
       if (!parcel) return false;
       if (
-        parcel.carriedBy ||
         mapData?.utilityMap?.[parcel?.x]?.[parcel?.y] == 0
       )
         return false;
@@ -132,21 +143,13 @@ function generatePickUps() {
       return parcel.reward - Math.round(rewardDrop) > 0;
     }) ?? [];
 
-/*   viableParcels.sort((a, b) => {
-    const distA = utilityDistanceAStar(agentData.pos, a) ?? Infinity;
-    const distB = utilityDistanceAStar(agentData.pos, b) ?? Infinity;
-    const rewardA = a.reward - Math.round(envData.decade_frequency * distA);
-    const rewardB = b.reward - Math.round(envData.decade_frequency * distB);
-    return rewardB - rewardA;
-  }); */
-
   viableParcels.forEach((parcel) => {
     if (
       !agentData.options.some(
         (option) =>
           option.type == "go_pick_up" &&
           option.goal.x === parcel.x &&
-          option.goal.y === parcel.y
+          option.goal.y === parcel.y,
       )
     ) {
       const utility = pickUpUtility(parcel);
@@ -161,7 +164,7 @@ function generatePickUps() {
   });
   return viableParcels;
 }
-function generateDeliveries() {
+async function generateDeliveries() {
   const nearestDelivery = findNearestDelivery(agentData.pos);
   if (!nearestDelivery) return;
 
@@ -171,14 +174,9 @@ function generateDeliveries() {
       goal: nearestDelivery,
       utility: 1000,
     });
-    agentData.best_option = {
-      type: "go_put_down",
-      goal: nearestDelivery,
-      utility: 1000,
-    };
   }
 }
-export function optionsRevision() {
+export async function optionsRevision() {
   agentData.options.forEach((option) => {
     if (option.type === "go_pick_up") {
       option.utility = pickUpUtility(option.goal);
@@ -190,12 +188,12 @@ export function optionsRevision() {
 }
 function checkDelivery() {
   let scoreAtDelivery = 0;
-  agentData.parcelsCarried.forEach((parcel) => {
+  agentData.parcelsCarried.values().forEach((parcel) => {
     let deliveryCoord = findNearestDelivery(agentData.pos);
     let distance = distanceAStar(agentData.pos, deliveryCoord);
     scoreAtDelivery += Math.round(
-      parcel.reward - distance * envData.decade_frequency
+      parcel.reward - distance * envData.decade_frequency,
     );
   });
-  return scoreAtDelivery > 1.5 * envData.parcel_reward_avg;
+  return scoreAtDelivery > (envData.usePddl ? envData.parcel_reward_avg : 0);
 }

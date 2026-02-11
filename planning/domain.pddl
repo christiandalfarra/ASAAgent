@@ -1,14 +1,17 @@
 ;; domain file: new_domain.pddl
 (define (domain default)
-    (:requirements :strips)
+    (:requirements :strips :negative-preconditions)
     (:predicates
         (down ?tile1 ?tile2)
         (up ?tile1 ?tile2)
         (left ?tile1 ?tile2)
         (right ?tile1 ?tile2)
+        
         (at ?tile)
         (parcel_at ?p ?tile)
         (carrying ?p)
+        (delivered ?p)
+        (delivery ?tile)
     )
 
     (:action move-down
@@ -38,7 +41,7 @@
     )
     (:action put-down
         :parameters (?p ?tile)
-        :precondition (and (at ?tile)(carrying ?p))
-        :effect (and (parcel_at ?p ?tile) (not(carrying ?p)))
+        :precondition (and (at ?tile) (carrying ?p) (delivery ?tile))
+        :effect (and (delivered ?p) (not(carrying ?p)))
     )
 )
