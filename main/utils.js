@@ -207,7 +207,7 @@ export function samePosition(pos1, pos2) {
 export function findNearestDelivery(pos) {
   let nearest;
   let minDistance = 2000;
-  for (let coordinate of mapData.deliverCoordinates) {
+  mapData.deliverCoordinates.forEach((coordinate) => {
     if (coordinate.x !== pos.x || coordinate.y !== pos.y) {
       let distance = utilityDistanceAStar(pos, coordinate);
       if (distance != null && distance < minDistance) {
@@ -215,7 +215,7 @@ export function findNearestDelivery(pos) {
         nearest = { x: coordinate.x, y: coordinate.y };
       }
     }
-  }
+  });
   return nearest;
 }
 

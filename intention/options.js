@@ -32,7 +32,6 @@ export async function optionsLoop() {
 
 // Populate the agentData.options array with possible options
 export async function optionsGen() {
-  agentData.options = [];
   await generatePickUps();
 
   if (
@@ -90,8 +89,7 @@ async function generateRandomWalk() {
   }
 }
 async function generatePickUps() {
-  const delivering =
-    agentData.currentIntention?.predicate.type === "go_put_down";
+  const delivering = agentData.currentIntention?.predicate.type === "go_put_down";
 
   const canPickWhileDelivering = (() => {
     if (!delivering) {
@@ -117,7 +115,7 @@ async function generatePickUps() {
       const detour = Math.max(routeWithPickup - deliveryDistance, 0);
       if (detour === 0) return true;
 
-      const carriedCount = Math.max(agentData.parcelsCarried.length, 1);
+      const carriedCount = Math.max(agentData.parcelsCarried.size, 1);
       const delayCost = detour * envData.decade_frequency * carriedCount;
       const parcelNetReward =
         parcel.reward - envData.decade_frequency * routeWithPickup;
@@ -155,7 +153,7 @@ async function generatePickUps() {
         agentData.options.push({
           type: "go_pick_up",
           goal: parcel,
-          utility,
+          utility: utility,
         });
       }
     }
@@ -170,16 +168,11 @@ async function generateDeliveries() {
     agentData.options.push({
       type: "go_put_down",
       goal: nearestDelivery,
-      utility: 1000,
+      utility: 10 * agentData.parcelsCarried.size, // utility grows with the number of parcels carried
     });
   }
 }
 export async function optionsRevision() {
-  agentData.options.forEach((option) => {
-    if (option.type === "go_pick_up") {
-      option.utility = pickUpUtility(option.goal);
-    }
-  });
   agentData.options.sort((a, b) => {
     return b.utility - a.utility;
   });
@@ -188,7 +181,7 @@ function checkDelivery() {
   let scoreAtDelivery = 0;
   agentData.parcelsCarried.values().forEach((parcel) => {
     let deliveryCoord = findNearestDelivery(agentData.pos);
-    let distance = distanceAStar(agentData.pos, deliveryCoord);
+    let distance = utilityDistanceAStar(agentData.pos, deliveryCoord);
     scoreAtDelivery += Math.round(
       parcel.reward - distance * envData.decade_frequency,
     );

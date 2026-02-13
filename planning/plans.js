@@ -66,7 +66,7 @@ class GoTo extends Plan {
     }
     let path = findAStar(mapData.utilityMap, agentData.pos, goal);
     if (!path) {
-      return false;
+      throw ["stopped"]; // stop the intention if there is no path to the goal
     }
     let moveRetries = 0;
 
@@ -74,11 +74,10 @@ class GoTo extends Plan {
       if (this.stopped) throw ["stopped"];
       let nextMove = path[0];
       if (!nextMove) {
-        return false;
+        throw ["stopped"];
       }
       const success = await client.emitMove(nextMove.action);
       if (!success) {
-        console.log("[plans.js] Move failed", nextMove.action);
         moveRetries += 1;
         const blockedX = nextMove.x;
         const blockedY = nextMove.y;
@@ -110,7 +109,7 @@ class GoTo extends Plan {
           ) {
             mapData.updateTileValue(blockedX, blockedY, 0);
             if (!findAStar(mapData.utilityMap, agentData.pos, goal)){
-              return false;
+              throw ["stopped"]; // stop the intention to replan, because there is no path to the goal, maybe the mate will move and free the path
             }
           } else if (predicate.parent === "go_put_down") {
             // check if there is another path to avoid the mate, if not, drop the parcels move way and ask to mate to pickup
@@ -138,17 +137,10 @@ class GoTo extends Plan {
                 }
               }
             }
-            if (!movedAway) {
-              console.log(
-                "[plans.js] Failed to move away from mate. Will still request mate to pick up.",
-              );
-              // ask the mate to move away one position wait few seconds, i will  go in the prev pos of the mate
-              // drop the parcel and wait
-              const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-              await wait(envData.clock * 4); // wait for mate to pick up
-            }
-
+            
+            console.log("DEBUG [plans.js] stopping that intention", agentData.currentIntention.predicate);
             await agentData.currentIntention?.stop(); // stop current intention to replan
+            
             await askPickUp(myPos);
             const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             await wait(envData.clock * 10); // wait for mate to pick up
@@ -174,14 +166,6 @@ class GoTo extends Plan {
     }
     return true;
   }
-}
-function checkNewDelivery(goal) {
-  return findNearestFrom(
-    agentData.pos,
-    mapData.deliverCoordinates.filter(
-      (coord) => coord.x !== goal.x || coord.y !== goal.y,
-    ),
-  );
 }
 /**
  * PddlPickUp class that extends Plan, used to pick up a parcel

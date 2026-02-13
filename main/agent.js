@@ -25,6 +25,6 @@ await initEnv(500, usePddl);
 agentData.myIntentions = new IntentionRevision();
 setInterval(() => {
   optionsLoop();
-}, envData.clock * 1.5);
+}, envData.clock * (usePddl ? 2.5 : 1.5));
 
 agentData.myIntentions.loop();

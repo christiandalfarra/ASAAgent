@@ -7,9 +7,6 @@ import {
   sayAgents,
   sayPositionToMate,
 } from "../coordination/coordination.js";
-import {
-  findNearestDelivery,
-} from "../main/utils.js";
 
 export const agentData = new AgentData();
 export const mapData = new MapData();
@@ -89,8 +86,6 @@ client.onAgentsSensing((agents_sensed) => {
 });
 
 client.onMsg(async (id, name, msg, reply) => {
-  let fromId,
-    from = { id, name };
   switch (msg.type) {
     case "say_agents":
       msg.data.forEach((agent) => {
@@ -116,7 +111,7 @@ client.onMsg(async (id, name, msg, reply) => {
         const pickUpIntention = new Intention(null, {
           type: "go_pick_up",
           goal: posPickUp,
-          utility: 100000,
+          utility: 1000,
         });
         await agentData.myIntentions.push(pickUpIntention);
       } catch (error) {
@@ -125,21 +120,6 @@ client.onMsg(async (id, name, msg, reply) => {
           error
         );
       }
-      // go to deliver the parcel to the nearest delivery point
-      /* try {
-        const deliveryIntention = new Intention(null, {
-          type: "go_put_down",
-          goal: findNearestDelivery(posPickUp),
-          utility: 100000,
-        });
-        await agentData.myIntentions.push(deliveryIntention);
-      } catch (error) {
-        console.log(
-          "DEBUG [belief.js] Failed to achieve delivery intention",
-          error
-        );
-      } */
-
       break;
     default:
       console.log("[belief.js] Unknown message type:", msg.type);

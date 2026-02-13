@@ -5,10 +5,10 @@ export class AgentData {
     this.name = "";
     this.id = "";
     this.pos = { x: 0, y: 0 };
-    this.parcels = new Map();
-    this.parcelsCarried = new Map();
+    this.parcels = new Map();           // Map of parcels on the ground, key is parcel id, value is parcel object
+    this.parcelsCarried = new Map();    // Map of parcels being carried, key is parcel id, value is parcel object
     this.options = [];
-    this.best_option = [];
+    this.best_option = null;
     this.enemies = [];
     this.currentIntention = null;
     this.mateId = "";
@@ -16,15 +16,5 @@ export class AgentData {
     this.matePosition = {x:0, y:0};
     this.myIntentions = null;
     this.usePddl = false;
-  }
-  getPickedScore() {
-    let score = 0;
-    if (this.parcelsCarried.size == 0) return 0;
-    for (let parcel of this.parcelsCarried.values()) {
-      if (parcel && parcel.reward > 0) {
-        score += parcel.reward;
-      }
-    }
-    return score;
   }
 }
