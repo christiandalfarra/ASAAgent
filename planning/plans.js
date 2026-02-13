@@ -144,7 +144,7 @@ class GoTo extends Plan {
             await askPickUp(myPos);
             const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             await wait(envData.clock * 10); // wait for mate to pick up
-            throw ["stopped"]; // return false to indicate that the original go_put_down intention was not completed and needs to be replanned
+            return false; // return false to indicate that the original go_put_down intention was not completed and needs to be replanned
             //}
           }
         }
@@ -213,12 +213,17 @@ class PutDown extends Plan {
     let goal = predicate.goal;
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     console.log("[plans.js] Putting down parcel at", goal);
-    await this.subIntention({
+    let result = await this.subIntention({
       type: "go_to",
       goal: { x: goal.x, y: goal.y },
       utility: predicate.utility,
       parent: predicate.type,
     });
+    if (!result) {
+      // remove option of putdwon and replan
+      agentData.options = agentData.options.filter((option) => option.type !== "go_put_down");
+      throw ["stopped"]; // if failed to reach the goal, stop the intention to replan
+    }
     if (this.stopped) throw ["stopped"]; // if stopped then quit
     if (await client.emitPutdown()) {
       agentData.parcelsCarried.clear();
