@@ -60,7 +60,6 @@ async function generateRandomWalk() {
   });
   // choose a random reachable spawn point or if there is none choose a random walkable tile
   if (reachableSpawnPoints.length > 0) {
-    console.log("DEBUG [options.js]vai in uno spawn a caso ");
     const target = reachableSpawnPoints[Math.floor(Math.random() * reachableSpawnPoints.length)];
     agentData.options.push({
       type: "go_to",
@@ -70,7 +69,6 @@ async function generateRandomWalk() {
     });
     return;
   }else{
-    console.log("DEBUG [options.js]non ci sono spawn raggiungibili, cerco un tile raggiungibile qualsiasi");
     // if there is no reachable spawn point, choose a random walkable and reachable tile
     const reachableWalkable = mapData.walkableCoordinates.filter((tile) => {
       const path = findAStar(mapData.utilityMap, agentData.pos, tile);

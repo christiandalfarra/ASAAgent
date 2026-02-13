@@ -96,6 +96,10 @@ export async function initEnv(time = 2000, usePddl = false) {
  * @returns {Array{x:number, y:number}} - The path from start to goal
  */
 export function findAStar(map, start, goal) {
+
+  if (start === null || goal === null) {
+    return null;
+  }
   const cols = map.length;
   const rows = map[0].length;
 

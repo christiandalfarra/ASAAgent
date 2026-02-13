@@ -148,12 +148,11 @@ class GoTo extends Plan {
               await wait(envData.clock * 4); // wait for mate to pick up
             }
 
+            await agentData.currentIntention?.stop(); // stop current intention to replan
             await askPickUp(myPos);
             const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-            await wait(envData.clock * 6); // wait for mate to pick up
-            await agentData.currentIntention?.stop(); // stop current intention to replan with the new state after mate picks up
-            await optionsLoop(); // replan immediately after mate picks up
-            return false; // return false to indicate that the original go_put_down intention was not completed and needs to be replanned
+            await wait(envData.clock * 10); // wait for mate to pick up
+            throw ["stopped"]; // return false to indicate that the original go_put_down intention was not completed and needs to be replanned
             //}
           }
         }
