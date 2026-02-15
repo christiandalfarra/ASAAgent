@@ -67,7 +67,7 @@ ASAAgent
 5. **Run single-agent with PDDL solver**
    
    ```bash
-   node index.js mode=S pddl=F
+   node index.js mode=S pddl=T
    ```
 
 ---
