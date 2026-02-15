@@ -103,7 +103,7 @@ client.onMsg(async (id, name, msg, reply) => {
       break;
     case "ask_pick_up":
       const posPickUp = msg.data
-      console.log("DEBUG [belief.js] Pick up request at position:", posPickUp);
+      console.log("[belief.js] Pick up request at position:", posPickUp);
       // block the intention that i am currently doing
       await agentData.currentIntention?.stop();
       // go to the position and pick up the parcel
@@ -116,7 +116,7 @@ client.onMsg(async (id, name, msg, reply) => {
         await agentData.myIntentions.push(pickUpIntention);
       } catch (error) {
         console.log(
-          "DEBUG [belief.js] Failed to achieve pick up intention",
+          "[belief.js] Failed to achieve pick up intention",
           error
         );
       }

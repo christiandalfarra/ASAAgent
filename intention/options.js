@@ -12,10 +12,10 @@ import {
 
 /**
  * Function that evaluates and fills agent options for picking parcels
+ * and delivering them, as well as random walking when no other options are available.
  * Intended to be called in a loop to keep updating choices
  */
 export async function optionsLoop() {
-  // Evita crash se la mappa non è pronta
   if (!mapData.map || mapData.map.length === 0) return;
   agentData.options = [];
   await optionsGen();

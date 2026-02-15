@@ -2,19 +2,12 @@ import { agentData, mapData, envData } from "../belief/belief.js";
 import { onlineSolver, PddlExecutor, PddlProblem } from "@unitn-asa/pddl-client";
 import {
   findNearestDelivery,
-  findNearestFrom,
   findAStar,
 } from "../main/utils.js";
 import { Intention } from "../intention/intention.js";
 import { client } from "../conf.js";
 import { askPickUp } from "../coordination/coordination.js";
-import { optionsLoop } from "../intention/options.js";
 import { createPddlProblem, createPddlActions, domain} from "./pddlUtils.js";
-
-//import { PddlProblem, onlineSolver } from "@unitn-asa/pddl-client";
-
-// Read the domain file for the PDDL planner
-//let domain = await readFile("./planners/domain.pddl");
 
 /**
  * Plan class
@@ -127,28 +120,17 @@ class GoTo extends Plan {
               { x: agentData.pos.x, y: agentData.pos.y + 1, action: "up" },
               { x: agentData.pos.x, y: agentData.pos.y - 1, action: "down" },
             ];
-            let movedAway = false;
-            for (const dir of directions) {
-              if (mapData.utilityMap[dir.x][dir.y] !== 0) {
-                const moveSuccess = await client.emitMove(dir.action);
-                if (moveSuccess) {
-                  movedAway = true;
-                  break;
-                }
-              }
-            }
             
-            console.log("DEBUG [plans.js] stopping that intention", agentData.currentIntention.predicate);
+            console.log("[plans.js] stopping that intention", agentData.currentIntention.predicate);
             await agentData.currentIntention?.stop(); // stop current intention to replan
             
+            console.log("[plans.js] Asking mate to pick up parcel at", myPos);
             await askPickUp(myPos);
             const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             await wait(envData.clock * 10); // wait for mate to pick up
             return false; // return false to indicate that the original go_put_down intention was not completed and needs to be replanned
-            //}
           }
         }
-        // if one is delivering and there are no other paths, drop the parcel move away and ask to mate to pick up
         if (moveRetries < maxMoveRetries) {
           continue;
         }
@@ -191,7 +173,7 @@ class PickUp extends Plan {
       agentData.parcelsCarried.set(predicate.goal.id, predicate.goal);
       agentData.parcels.delete(predicate.goal.id);
       console.log(
-        "[plans.js] parcels on my head   : ",
+        "[plans.js] parcels on my head: ",
         agentData.parcelsCarried,
       );
       return true;
@@ -234,6 +216,9 @@ class PutDown extends Plan {
   }
 }
 
+/**
+ * PddlGoTo class that extends Plan, used to move the agent to a specific location
+ */
 class PddlGoTo extends Plan {
   static isApplicableTo(type) {
     return type === 'go_to';
@@ -280,7 +265,9 @@ class PddlGoTo extends Plan {
     return false;
   }
 }
-
+/**
+ * PddlPickUp class that extends Plan, used to pick up a parcel using PDDL-based planning
+ */
 class PddlPickUp extends Plan {
   static isApplicableTo(type) {
     return type === 'go_pick_up';
@@ -318,6 +305,9 @@ class PddlPickUp extends Plan {
   }
 }
 
+/**
+ * PddlPutDown class that extends Plan, used to put down a parcel using PDDL-based planning
+ */
 class PddlPutDown extends Plan {
   static isApplicableTo(type) {
     return type === 'go_put_down';
@@ -350,14 +340,15 @@ class PddlPutDown extends Plan {
   }
 }
 
+// Export the plans and a function to configure which plans to use based on whether PDDL is enabled or not
 export const plans = [];
 export function configurePlans(usePddl) {
   plans.length = 0;
   if (usePddl) {
-    console.log("DEBUG [plans.js] Using PDDL-based plans");
+    console.log("[plans.js] Using PDDL-based plans");
     plans.push(PddlGoTo, PddlPickUp, PddlPutDown);
   } else {
-    console.log("DEBUG [plans.js] Using non-PDDL-based plans");
+    console.log("[plans.js] Using non-PDDL-based plans");
     plans.push(GoTo, PickUp, PutDown);
   }
 }

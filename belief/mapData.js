@@ -23,6 +23,10 @@ export class MapData {
     this.height = 0;
   }
 
+  /**
+   * Set walkable coordinates from tile array
+   * @param {Array} tiles - Array of tile objects
+   */
   setWalkableCoordinates(tiles) {
     this.walkableCoordinates = tiles
       .filter((t) => t.type === 0)

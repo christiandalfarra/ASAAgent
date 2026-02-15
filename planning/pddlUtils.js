@@ -8,6 +8,13 @@ export const domain = await readFile(
   "utf8",
 );
 
+/**
+ * Creates a PDDL problem definition based on the current belief state and a given predicate.
+  * The predicate should have a type (e.g., "go_pick_up", "go_put_down", "go_to") and a goal with necessary details.
+  * The function constructs the objects, initial state, and goal conditions for the PDDL problem, which can then be used by a planner to generate a plan for the agent to achieve the specified predicate.
+ * @param {Object} predicate - The predicate representing the goal the agent wants to achieve. It should have a 'type' and a 'goal' property.
+ * @returns {Object} An object containing the name, objects, initial state, and goals for the PDDL problem.
+ */
 export function createPddlProblem(predicate) {
   if (!predicate || !predicate.goal) {
     throw new Error("createPddlProblem: missing predicate or predicate.goal");
@@ -63,6 +70,7 @@ export function createPddlProblem(predicate) {
     beliefset.declare(`delivery ${deliveryTile}`);
   }
 
+  // create the goals and initial state based on the predicate type
   let goals = "";
   if (predicate.type === "go_pick_up") {
     const parcelId = predicate.goal.id;
@@ -94,14 +102,21 @@ export function createPddlProblem(predicate) {
   };
 }
 
-function createMoveAction(name, direction, isStoppedFn) {
+/**
+ * Helper function to create move actions for the PDDL domain, with an optional check to prevent execution if the intention has been stopped.
+ * @param {string} name - The name of the action (e.g., "move-left").
+ * @param {string} direction - The direction of movement (e.g., "left", "right", "up", "down").
+ * @param {function} checkStopped - An optional function to check if the intention has been stopped.
+ * @return {PddlAction} A PddlAction object representing the move action.
+ */
+function createMoveAction(name, direction, checkStopped) {
   return new PddlAction(
     name,
     "?tile1 ?tile2",
     `(and (at ?tile1) (${direction} ?tile1 ?tile2))`,
     `(and (at ?tile2) (not (at ?tile1)))`,
     async () => {
-      if (isStoppedFn && isStoppedFn()) {
+      if (checkStopped && checkStopped()) {
         return false;
       }
       return Boolean(await client.emitMove(direction));
@@ -109,31 +124,38 @@ function createMoveAction(name, direction, isStoppedFn) {
   );
 }
 
-export function createPddlActions(isStoppedFn) {
+/**
+ * Creates a set of PDDL actions for the domain, including movement in four directions, picking up parcels, and putting down parcels. Each action includes an optional check to prevent execution if the intention has been stopped.
+ * @param {function} checkStopped - An optional function that returns true if the intention has been stopped, which will prevent the actions from executing.
+ * @return {Object} An object containing the PDDL actions for movement, picking up, and putting down.
+ */
+export function createPddlActions(checkStopped) {
   return {
-    moveLeft: createMoveAction("move-left", "left", isStoppedFn),
-    moveRight: createMoveAction("move-right", "right", isStoppedFn),
-    moveUp: createMoveAction("move-up", "up", isStoppedFn),
-    moveDown: createMoveAction("move-down", "down", isStoppedFn),
+    moveLeft: createMoveAction("move-left", "left", checkStopped),
+    moveRight: createMoveAction("move-right", "right", checkStopped),
+    moveUp: createMoveAction("move-up", "up", checkStopped),
+    moveDown: createMoveAction("move-down", "down", checkStopped),
 
+    // The pick-up action allows the agent to pick up a parcel from its current location, given that the parcel is at the same tile as the agent and the agent is not already carrying it. The action's effect is to make the agent carry the parcel and remove it from the tile.
     pickUp: new PddlAction(
       "pick-up",
       "?p ?tile",
       "(and (parcel_at ?p ?tile) (at ?tile) (not (carrying ?p)))",
       "(and (carrying ?p) (not (parcel_at ?p ?tile)))",
       async () => {
-        if (isStoppedFn && isStoppedFn()) return false;
+        if (checkStopped && checkStopped()) return false;
         return Boolean(await client.emitPickup());
       },
     ),
 
+    // The put-down action allows the agent to put down a parcel it is currently carrying onto its current tile, given that the tile is a delivery location. The action's effect is to mark the parcel as delivered and no longer carried by the agent.
     putDown: new PddlAction(
       "put-down",
       "?p ?tile",
       "(and (carrying ?p) (at ?tile) (delivery ?tile))",
       "(and (delivered ?p) (not (carrying ?p)))",
       async () => {
-        if (isStoppedFn && isStoppedFn()) return false;
+        if (checkStopped && checkStopped()) return false;
         return Boolean(await client.emitPutdown());
       },
     ),
