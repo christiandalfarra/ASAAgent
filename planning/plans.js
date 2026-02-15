@@ -120,17 +120,28 @@ class GoTo extends Plan {
               { x: agentData.pos.x, y: agentData.pos.y + 1, action: "up" },
               { x: agentData.pos.x, y: agentData.pos.y - 1, action: "down" },
             ];
+            let movedAway = false;
+            for (const dir of directions) {
+              if (mapData.utilityMap[dir.x][dir.y] !== 0) {
+                const moveSuccess = await client.emitMove(dir.action);
+                if (moveSuccess) {
+                  movedAway = true;
+                  break;
+                }
+              }
+            }
             
             console.log("[plans.js] stopping that intention", agentData.currentIntention.predicate);
             await agentData.currentIntention?.stop(); // stop current intention to replan
             
-            console.log("[plans.js] Asking mate to pick up parcel at", myPos);
             await askPickUp(myPos);
             const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
             await wait(envData.clock * 10); // wait for mate to pick up
             return false; // return false to indicate that the original go_put_down intention was not completed and needs to be replanned
+            //}
           }
         }
+        // if one is delivering and there are no other paths, drop the parcel move away and ask to mate to pick up
         if (moveRetries < maxMoveRetries) {
           continue;
         }

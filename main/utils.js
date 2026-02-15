@@ -191,6 +191,9 @@ export function distanceAStar(start, end) {
   return path != null ? path.length : path;
 }
 export function utilityDistanceAStar(start, end) {
+  if (start === null || end === null) {
+    return null;
+  }
   const path = findAStar(mapData.utilityMap, start, end);
   return path != null ? path.length : path;
 }

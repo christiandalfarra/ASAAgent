@@ -180,6 +180,8 @@ export async function optionsRevision() {
 function checkDelivery() {
   let scoreAtDelivery = 0;
   agentData.parcelsCarried.values().forEach((parcel) => {
+    if (!parcel) return;
+    if (mapData?.utilityMap?.[parcel?.x]?.[parcel?.y] == 0) return;
     let deliveryCoord = findNearestDelivery(agentData.pos);
     let distance = utilityDistanceAStar(agentData.pos, deliveryCoord);
     scoreAtDelivery += Math.round(
